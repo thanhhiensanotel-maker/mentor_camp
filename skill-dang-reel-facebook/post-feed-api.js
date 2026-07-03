@@ -30,7 +30,7 @@ const DRY = process.argv.includes('--dry-run');
 if (!DRY && !CFG.APP_SECRET) { console.error('!! Thiếu LARK_APP_SECRET — đặt qua biến môi trường.'); process.exit(1); }
 
 const F = { link:'Link Page', type:'Loại', caption:'Nội dung', comment:'Comment ebook', media:'Ảnh/video',
-            schedule:'Lịch đăng bài', status:'Trạng thái', log:'Log', linkPost:'Link bài đăng' };
+            thumb:'Thumbnail', schedule:'Lịch đăng bài', status:'Trạng thái', log:'Log', linkPost:'Link bài đăng' };
 const DONE = 'Thành công', FAIL = 'Thất bại';
 const now = () => new Date().toISOString().replace('T',' ').slice(0,19);
 const log = (...a) => console.log(now(), ...a);
@@ -92,9 +92,10 @@ async function postPhotos(pageId, token, files, caption) {
   const post=await fbFetch(`${GRAPH}/${pageId}/feed`,{method:'POST',body});
   return { objectId:post.id, permalink:`https://www.facebook.com/${post.id}` };
 }
-async function postVideo(pageId, token, file, caption) {
+async function postVideo(pageId, token, file, caption, thumbFile) {
   const fd=new FormData(); fd.set('access_token',token); if(caption)fd.set('description',caption);
   fd.set('source', new Blob([fs.readFileSync(file.path)]), file.name||'video.mp4');
+  if(thumbFile&&thumbFile.path) fd.set('thumb', new Blob([fs.readFileSync(thumbFile.path)]), thumbFile.name||'thumb.jpg'); // chèn thumbnail cho video
   const j=await fbFetch(`${GRAPH}/${pageId}/videos`,{method:'POST',body:fd});
   if(!j.id) throw new Error('upload video không có id');
   let permalink='';
@@ -144,13 +145,18 @@ function scheduleMs(cell){ if(cell==null)return null; if(typeof cell==='number')
     let kind = /video/i.test(loai) ? 'video' : /ảnh|hình|image|photo/i.test(loai) ? 'image' : (atts.some(isVid)?'video':'image');
     const files = kind==='video' ? [ atts.find(isVid)||atts[0] ] : atts.filter(a=>isImg(a)||!isVid(a));
     log(`  >> ${recId} | ${pg.name} | ${kind} | ${files.length} file | "${caption.slice(0,40).replace(/\n/g,' ')}"`);
-    if(DRY){ const c=plain(row.fields[F.comment]).trim(); if(c)log(`     [DRY] comment: ${c.slice(0,60)}`); continue; }
+    if(DRY){ const c=plain(row.fields[F.comment]).trim(); if(c)log(`     [DRY] comment: ${c.slice(0,60)}`);
+      if(kind==='video'){ const th=Array.isArray(row.fields[F.thumb])?row.fields[F.thumb]:[]; log(th.length?`     [DRY] thumbnail: ${th[0].name||'(có)'}`:`     [DRY] thumbnail: (không có -> FB tự tạo)`);} continue; }
 
     const tmp=[];
     try{
       for(let i=0;i<files.length;i++){ const f=files[i]; const p=path.join(os.tmpdir(),`feed_${recId}_${i}_${(f.name||'m').replace(/[^\w.]/g,'')}`);
         await downloadMedia(tk,f.file_token,p); f.path=p; tmp.push(p); }
-      const res = kind==='video' ? await postVideo(pg.fbId,pg.token,files[0],caption)
+      // Chỉ VIDEO mới dùng thumbnail; ảnh thì bỏ qua. Lấy ảnh đầu trong cột Thumbnail.
+      let thumbFile=null;
+      if(kind==='video'){ const ths=Array.isArray(row.fields[F.thumb])?row.fields[F.thumb]:[]; const th=ths.find(a=>isImg(a))||ths[0];
+        if(th&&th.file_token){ const tp=path.join(os.tmpdir(),`thumb_${recId}_${(th.name||'t').replace(/[^\w.]/g,'')}`); await downloadMedia(tk,th.file_token,tp); thumbFile={path:tp,name:th.name}; tmp.push(tp); } }
+      const res = kind==='video' ? await postVideo(pg.fbId,pg.token,files[0],caption,thumbFile)
                                   : await postPhotos(pg.fbId,pg.token,files,caption);
       // Auto comment (link ebook) — không làm hỏng bài nếu lỗi.
       let cmtNote=''; const commentText=plain(row.fields[F.comment]).trim();

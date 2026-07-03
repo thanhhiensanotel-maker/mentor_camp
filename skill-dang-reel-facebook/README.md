@@ -66,6 +66,7 @@ Tab **Actions → dang-reel → Run workflow**, đặt `dry_run = true`: chỉ l
 | `Page` (link → 14.1 Pages) | Chọn page để đăng |
 | `Loại` (Hình ảnh / Video) | Kiểu bài (tự đoán theo file nếu trống) |
 | `Ảnh/video` (Attachment) | 1 video, hoặc nhiều ảnh |
+| `Thumbnail` (Attachment) | (tùy chọn) ảnh bìa — CHỈ dùng khi đăng video; đăng ảnh thì bỏ qua |
 | `Nội dung` | Caption |
 | `Comment ebook` | (tùy chọn) auto-comment #1 sau khi đăng |
 | `Lịch đăng bài` (DateTime) | Hẹn giờ (trống = đăng ngay) |
