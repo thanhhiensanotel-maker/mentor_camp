@@ -1,0 +1,40 @@
+name: dang-reel
+
+# Đăng Reel Facebook từ Lark Base — chạy trên GitHub Actions.
+# Kích hoạt qua HTTP: POST /repos/<user>/<repo>/dispatches  {"event_type":"dang-reel", "client_payload": {...}}
+# Hoặc bấm tay: tab Actions -> dang-reel -> Run workflow.
+
+on:
+  repository_dispatch:
+    types: [dang-reel]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Chỉ liệt kê, không đăng (true/false)"
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Đăng bài Fanpage
+        env:
+          # SECRET DUY NHẤT — để trong GitHub Secrets (token FB lấy từ bảng Pages trong Lark, không cần ở đây)
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          # Định danh (không bí mật) — base SANOTEL, bảng "14.3 Đăng bài Fanpage" + bảng "14.1 Pages"
+          LARK_APP_ID:    cli_aaae89e966f85e17
+          LARK_APP_TOKEN: BuH1b5axjaKZotsTQO9jlwTAp4b
+          LARK_TABLE_ID:  tblOif0B9CUz4HFD
+          PAGES_TABLE_ID: tblq6lelcX8aXAM4
+          LARK_DOMAIN:    https://open.larksuite.com
+          RESPECT_SCHEDULE: ${{ github.event.client_payload.respect_schedule }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node skill-dang-reel-facebook/post-feed-api.js --dry-run
+          else
+            node skill-dang-reel-facebook/post-feed-api.js
+          fi
