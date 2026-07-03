@@ -56,7 +56,7 @@ Grounded từ tài liệu chính thức **YouTube Data API v3** (Google):
 
 | Hạng mục | Giá trị / cách lấy |
 |----------|--------------------|
-| Lark Base | base_token `TaaEbHJg5aoz2Usw3mQlK9mQgUR` · table `tblpu3bAGohfC4Rt` ("Lịch đăng YouTube"). Đổi cho khách: env `YT_BASE_TOKEN` / `YT_TABLE_ID` trong [scripts/config.js](scripts/config.js) |
+| Lark Base | base_token `YOUR_BASE_TOKEN` · table `YOUR_TABLE_ID` ("Lịch đăng YouTube"). Đổi cho khách: env `YT_BASE_TOKEN` / `YT_TABLE_ID` trong [scripts/config.js](scripts/config.js) |
 | OAuth client | `.secrets/client_secret.json` (OAuth **Desktop app**, dự án bật YouTube Data API v3, app **Production**). Cách tạo click-by-click: [references/huong-dan-tao-oauth-youtube.md](references/huong-dan-tao-oauth-youtube.md) |
 | Refresh token | `.secrets/youtube-token.json` — sinh ra bằng `node auth.js` (1 lần). |
 | Node | `C:\Program Files\nodejs` (không có sẵn trên PATH — thêm khi chạy). `npm install` trong `scripts/` để có `googleapis`. |

@@ -7,8 +7,8 @@ const ROOT = process.env.YT_ROOT || 'H:\\HOÁ TRI THỨC';
 
 module.exports = {
   // --- Lark Base (ĐỔI cho khách khác) ---
-  BASE_TOKEN: process.env.YT_BASE_TOKEN || 'TaaEbHJg5aoz2Usw3mQlK9mQgUR',
-  TABLE_ID: process.env.YT_TABLE_ID || 'tblpu3bAGohfC4Rt', // "Lịch đăng YouTube"
+  BASE_TOKEN: process.env.YT_BASE_TOKEN || 'YOUR_BASE_TOKEN',
+  TABLE_ID: process.env.YT_TABLE_ID || 'YOUR_TABLE_ID', // "Lịch đăng YouTube"
   // Tên field (lark-cli nhận theo tên field, ổn định hơn id khi đọc)
   FIELDS: {
     tieuDe: 'Tiêu đề',
