@@ -1,0 +1,11 @@
+{
+  "name": "dang-reel-facebook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Đăng Reel từ Lark Base lên Facebook Page qua Lark Open API + FB Graph API. Không dependency, chỉ cần Node 18+.",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node post-reels-api.js",
+    "dry": "node post-reels-api.js --dry-run"
+  }
+}
