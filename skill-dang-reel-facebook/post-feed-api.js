@@ -92,17 +92,41 @@ async function postPhotos(pageId, token, files, caption) {
   const post=await fbFetch(`${GRAPH}/${pageId}/feed`,{method:'POST',body});
   return { objectId:post.id, permalink:`https://www.facebook.com/${post.id}` };
 }
+// Đăng video bằng RESUMABLE (chunked) upload: chia video thành nhiều mảnh nhỏ đẩy lần lượt
+// (đúng cách app FB/YouTube làm) → đăng được video NẶNG >100MB, hết lỗi "FB 413: Payload Too Large".
+// 3 pha: start (báo dung lượng, xin session) → transfer (đẩy từng mảnh theo offset FB trả) → finish (chốt bài + caption + thumbnail).
 async function postVideo(pageId, token, file, caption, thumbFile) {
-  const fd=new FormData(); fd.set('access_token',token); if(caption)fd.set('description',caption);
-  fd.set('source', new Blob([fs.readFileSync(file.path)]), file.name||'video.mp4');
-  if(thumbFile&&thumbFile.path) fd.set('thumb', new Blob([fs.readFileSync(thumbFile.path)]), thumbFile.name||'thumb.jpg'); // chèn thumbnail cho video
-  const j=await fbFetch(`${GRAPH}/${pageId}/videos`,{method:'POST',body:fd});
-  if(!j.id) throw new Error('upload video không có id');
+  const buf = fs.readFileSync(file.path);
+  const fileSize = buf.length;
+  // Pha 1 — START: báo tổng dung lượng, nhận upload_session_id + video_id + mốc offset đầu.
+  const startBody = new URLSearchParams();
+  startBody.set('access_token', token); startBody.set('upload_phase', 'start'); startBody.set('file_size', String(fileSize));
+  const st = await fbFetch(`${GRAPH}/${pageId}/videos`, { method:'POST', body:startBody });
+  const sessionId = st.upload_session_id, videoId = st.video_id;
+  if (!sessionId || !videoId) throw new Error('resumable start thiếu session/video id: '+JSON.stringify(st));
+  let start = Number(st.start_offset), end = Number(st.end_offset);
+  // Pha 2 — TRANSFER: đẩy lần lượt mảnh [start,end); FB trả offset mới mỗi lần cho tới khi start===end.
+  while (start < end) {
+    const chunk = buf.subarray(start, end);
+    const fd = new FormData();
+    fd.set('access_token', token); fd.set('upload_phase', 'transfer'); fd.set('upload_session_id', sessionId);
+    fd.set('start_offset', String(start));
+    fd.set('video_file_chunk', new Blob([chunk]), file.name||'video.mp4');
+    const tr = await fbFetch(`${GRAPH}/${pageId}/videos`, { method:'POST', body:fd });
+    start = Number(tr.start_offset); end = Number(tr.end_offset);
+    log(`     … đang tải video: ${Math.min(start,fileSize)}/${fileSize} bytes`);
+  }
+  // Pha 3 — FINISH: chốt bài, gắn caption + thumbnail (nếu có).
+  const finFd = new FormData();
+  finFd.set('access_token', token); finFd.set('upload_phase', 'finish'); finFd.set('upload_session_id', sessionId);
+  if(caption) finFd.set('description', caption);
+  if(thumbFile&&thumbFile.path) finFd.set('thumb', new Blob([fs.readFileSync(thumbFile.path)]), thumbFile.name||'thumb.jpg');
+  await fbFetch(`${GRAPH}/${pageId}/videos`, { method:'POST', body:finFd });
   let permalink='';
-  try{ const st=await fbFetch(`${GRAPH}/${j.id}?fields=permalink_url&access_token=${encodeURIComponent(token)}`,{method:'GET'});
-    permalink=st.permalink_url||''; }catch{}
+  try{ const info=await fbFetch(`${GRAPH}/${videoId}?fields=permalink_url&access_token=${encodeURIComponent(token)}`,{method:'GET'});
+    permalink=info.permalink_url||''; }catch{}
   if(permalink&&permalink.startsWith('/'))permalink='https://www.facebook.com'+permalink;
-  return { objectId:j.id, permalink:permalink||`https://www.facebook.com/${j.id}` };
+  return { objectId:videoId, permalink:permalink||`https://www.facebook.com/${videoId}` };
 }
 async function postComment(pageId, token, objectId, message){
   return fbFetch(`${GRAPH}/${objectId}/comments`,{method:'POST',body:new URLSearchParams({message,access_token:token})});
@@ -132,11 +156,14 @@ function scheduleMs(cell){ if(cell==null)return null; if(typeof cell==='number')
   for(const row of rows){
     const recId=row.record_id;
     if(plain(row.fields[F.status])===DONE) { skip++; continue; }              // đã đăng
-    const pageRecId=linkRecIds(row.fields[F.link])[0];
+    const pageRecIds=linkRecIds(row.fields[F.link]);                          // LẤY TẤT CẢ Page được link (không chỉ page đầu) → đăng đủ mọi kênh
     const atts=Array.isArray(row.fields[F.media])?row.fields[F.media]:[];
-    if(!pageRecId || atts.length===0) { skip++; continue; }                   // dòng chưa sẵn sàng → bỏ qua im lặng
-    const pg=pageMap.get(pageRecId);
-    if(!pg||!pg.fbId||!pg.token){ log(`  [LỖI] ${recId}: Page link không có ID/token trong bảng 14.1`); if(!DRY)await updateRow(tk,recId,{[F.status]:FAIL,[F.log]:`${now()} - Page thiếu ID/token`}); err++; continue; }
+    if(pageRecIds.length===0 || atts.length===0) { skip++; continue; }        // dòng chưa sẵn sàng → bỏ qua im lặng
+    // Gom Page hợp lệ (có ID+token trong bảng 14.1); Page thiếu thông tin cho vào badPages để báo.
+    const pages=[], badPages=[];
+    for(const prid of pageRecIds){ const pg=pageMap.get(prid);
+      if(pg&&pg.fbId&&pg.token) pages.push({recId:prid, ...pg}); else badPages.push(prid); }
+    if(pages.length===0){ log(`  [LỖI] ${recId}: không Page nào có ID/token trong bảng 14.1`); if(!DRY)await updateRow(tk,recId,{[F.status]:FAIL,[F.log]:`${now()} - Page thiếu ID/token`}); err++; continue; }
 
     if(CFG.RESPECT_SCHEDULE){ const s=scheduleMs(row.fields[F.schedule]); if(s&&s>nowMs){ log(`  [CHỜ GIỜ] ${recId}: hẹn ${new Date(s).toISOString().slice(0,16)}`); wait++; continue; } }
 
@@ -144,26 +171,48 @@ function scheduleMs(cell){ if(cell==null)return null; if(typeof cell==='number')
     const loai=plain(row.fields[F.type]);
     let kind = /video/i.test(loai) ? 'video' : /ảnh|hình|image|photo/i.test(loai) ? 'image' : (atts.some(isVid)?'video':'image');
     const files = kind==='video' ? [ atts.find(isVid)||atts[0] ] : atts.filter(a=>isImg(a)||!isVid(a));
-    log(`  >> ${recId} | ${pg.name} | ${kind} | ${files.length} file | "${caption.slice(0,40).replace(/\n/g,' ')}"`);
+    log(`  >> ${recId} | ${pages.map(p=>p.name).join(', ')}${badPages.length?` (+${badPages.length} page lỗi)`:''} | ${kind} | ${files.length} file | ${pages.length} page | "${caption.slice(0,40).replace(/\n/g,' ')}"`);
     if(DRY){ const c=plain(row.fields[F.comment]).trim(); if(c)log(`     [DRY] comment: ${c.slice(0,60)}`);
       if(kind==='video'){ const th=Array.isArray(row.fields[F.thumb])?row.fields[F.thumb]:[]; log(th.length?`     [DRY] thumbnail: ${th[0].name||'(có)'}`:`     [DRY] thumbnail: (không có -> FB tự tạo)`);} continue; }
 
     const tmp=[];
     try{
+      // Tải media 1 LẦN rồi dùng chung cho mọi Page (không tải lại cho từng kênh).
       for(let i=0;i<files.length;i++){ const f=files[i]; const p=path.join(os.tmpdir(),`feed_${recId}_${i}_${(f.name||'m').replace(/[^\w.]/g,'')}`);
         await downloadMedia(tk,f.file_token,p); f.path=p; tmp.push(p); }
       // Chỉ VIDEO mới dùng thumbnail; ảnh thì bỏ qua. Lấy ảnh đầu trong cột Thumbnail.
       let thumbFile=null;
       if(kind==='video'){ const ths=Array.isArray(row.fields[F.thumb])?row.fields[F.thumb]:[]; const th=ths.find(a=>isImg(a))||ths[0];
         if(th&&th.file_token){ const tp=path.join(os.tmpdir(),`thumb_${recId}_${(th.name||'t').replace(/[^\w.]/g,'')}`); await downloadMedia(tk,th.file_token,tp); thumbFile={path:tp,name:th.name}; tmp.push(tp); } }
-      const res = kind==='video' ? await postVideo(pg.fbId,pg.token,files[0],caption,thumbFile)
-                                  : await postPhotos(pg.fbId,pg.token,files,caption);
-      // Auto comment (link ebook) — không làm hỏng bài nếu lỗi.
-      let cmtNote=''; const commentText=plain(row.fields[F.comment]).trim();
-      if(commentText){ try{ await postComment(pg.fbId,pg.token,res.objectId,commentText); cmtNote=' +cmt'; }
-        catch(e){ cmtNote=' (cmt lỗi)'; log(`     ! comment lỗi: ${String(e.message||e).slice(0,120)}`); } }
-      await updateRow(tk,recId,{ [F.status]:DONE, [F.linkPost]:{link:res.permalink,text:'Xem bài'}, [F.log]:`${now()} - OK - ${res.objectId}${cmtNote}` });
-      log(`     ✔ ĐÃ ĐĂNG: ${res.permalink}`); ok++;
+      const commentText=plain(row.fields[F.comment]).trim();
+      const prevLog=plain(row.fields[F.log])||'';                             // Log cũ → biết Page nào đã đăng để chạy lại KHÔNG đăng trùng.
+      const mark=id=>`✓${id}`;
+      // Đăng lần lượt lên TỪNG Page; Page đã có dấu ✓ trong Log cũ thì bỏ qua (chống đăng trùng khi retry).
+      const results=[]; let firstLink='';
+      for(const pg of pages){
+        if(prevLog.includes(mark(pg.recId))){ results.push({pg,ok:true,skipped:true}); log(`     • ${pg.name}: đã đăng trước → bỏ qua`); continue; }
+        try{
+          const res = kind==='video' ? await postVideo(pg.fbId,pg.token,files[0],caption,thumbFile)
+                                      : await postPhotos(pg.fbId,pg.token,files,caption);
+          let cmtNote='';
+          if(commentText){ try{ await postComment(pg.fbId,pg.token,res.objectId,commentText); cmtNote=' +cmt'; }
+            catch(e){ cmtNote=' (cmt lỗi)'; log(`     ! ${pg.name} comment lỗi: ${String(e.message||e).slice(0,120)}`); } }
+          if(!firstLink) firstLink=res.permalink;
+          results.push({pg,ok:true,permalink:res.permalink,objectId:res.objectId,cmtNote});
+          log(`     ✔ ${pg.name}: ${res.permalink}${cmtNote}`);
+        }catch(e){ const msg=String(e.message||e).slice(0,200); results.push({pg,ok:false,err:msg}); log(`     ✖ ${pg.name}: ${msg}`); }
+      }
+      // Tổng hợp: giữ dấu ✓ cho mọi Page đã thành công để lần chạy sau bỏ qua, không đăng trùng.
+      const okPages=results.filter(r=>r.ok), failPages=results.filter(r=>!r.ok), total=pages.length+badPages.length;
+      const logLines=results.map(r=> r.ok
+        ? `${mark(r.pg.recId)} ${r.pg.name}${r.skipped?': (đã đăng trước)':`: ${r.permalink||''}${r.cmtNote||''}`}`
+        : `✗ ${r.pg.name}: ${r.err}`);
+      if(badPages.length) logLines.push(`✗ ${badPages.length} Page thiếu ID/token`);
+      const allOk = failPages.length===0 && badPages.length===0;
+      const patch={ [F.status]: allOk?DONE:FAIL, [F.log]:`${now()} - ${allOk?'OK':'CHƯA ĐỦ'} ${okPages.length}/${total} page\n`+logLines.join('\n') };
+      if(firstLink) patch[F.linkPost]={link:firstLink, text: okPages.length>1?`Xem (${okPages.length} page)`:'Xem bài'};
+      await updateRow(tk,recId,patch);
+      if(allOk){ ok++; log(`     ✔ XONG ${okPages.length}/${total} page`); } else { err++; log(`     ⚠ MỚI ${okPages.length}/${total} page — sẽ tự thử lại Page còn thiếu ở lần chạy sau`); }
     }catch(e){ const msg=String(e.message||e).slice(0,300); log(`     ✖ LỖI: ${msg}`);
       try{await updateRow(tk,recId,{[F.status]:FAIL,[F.log]:`${now()} - LỖI - ${msg}`});}catch{} err++;
     }finally{ tmp.forEach(p=>{try{fs.unlinkSync(p)}catch{}}); }
