@@ -46,34 +46,49 @@ const linkRecIds = cell => { if(!cell) return [];
     else if(typeof el==='string') ids.push(el); }
   return ids.filter(Boolean); };
 
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const RATE_CODES = new Set([1254290,1254291,99991400]);   // Lark TooManyRequest / giới hạn tần suất / xung đột ghi
+// Gọi Lark Open API trả JSON, TỰ CHỜ RỒI THỬ LẠI khi bị giới hạn tần suất (TooManyRequest) — tránh chết cả job.
+async function larkJson(url, opts, label){
+  let last;
+  for(let i=0;i<7;i++){
+    if(i) await sleep(Math.min(20000, 800*2**i) + Math.floor(Math.random()*600));   // lùi tăng dần ~1.6s,3s,6s,12s,20s + nhiễu
+    let r,j; try{ r=await fetch(url,opts); j=await r.json(); }catch(e){ last=e; continue; }
+    if(j.code===0) return j;
+    if(RATE_CODES.has(j.code) || r.status===429){ last=new Error(`${label}: ${JSON.stringify(j)}`); log(`     ⏳ Lark bận (code ${j.code}) — chờ thử lại ${i+1}/7...`); continue; }
+    throw new Error(`${label}: ${JSON.stringify(j)}`);   // lỗi khác (token/quyền/field sai) → không thử lại
+  }
+  throw last || new Error(label+': hết lượt thử lại (Lark bận)');
+}
 async function larkToken() {
-  const r = await fetch(CFG.LARK_DOMAIN+'/open-apis/auth/v3/tenant_access_token/internal',
-    { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({app_id:CFG.APP_ID,app_secret:CFG.APP_SECRET}) });
-  const j = await r.json(); if (j.code!==0) throw new Error('Lark token: '+JSON.stringify(j)); return j.tenant_access_token;
+  const j = await larkJson(CFG.LARK_DOMAIN+'/open-apis/auth/v3/tenant_access_token/internal',
+    { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({app_id:CFG.APP_ID,app_secret:CFG.APP_SECRET}) }, 'Lark token');
+  return j.tenant_access_token;
 }
 async function listAll(tk, tableId) {
   let items=[], pt='';
-  do { const r=await fetch(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${tableId}/records?page_size=200`+(pt?'&page_token='+pt:''),{headers:{Authorization:'Bearer '+tk}});
-    const j=await r.json(); if(j.code!==0)throw new Error('list '+tableId+': '+JSON.stringify(j));
+  do { const j=await larkJson(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${tableId}/records?page_size=200`+(pt?'&page_token='+pt:''),{headers:{Authorization:'Bearer '+tk}}, 'list '+tableId);
     items=items.concat(j.data.items||[]); pt=j.data.has_more?j.data.page_token:''; } while(pt);
   return items;
 }
 async function listFields(tk, tableId) {
-  const r=await fetch(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${tableId}/fields?page_size=200`,{headers:{Authorization:'Bearer '+tk}});
-  const j=await r.json(); if(j.code!==0)throw new Error('fields: '+JSON.stringify(j));
+  const j=await larkJson(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${tableId}/fields?page_size=200`,{headers:{Authorization:'Bearer '+tk}}, 'fields');
   return (j.data.items||[]).map(f=>({name:f.field_name,type:f.type}));
 }
 async function updateRow(tk, recId, fields) {
-  const r=await fetch(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${CFG.TABLE_ID}/records/${recId}`,
-    {method:'PUT',headers:{'Content-Type':'application/json; charset=utf-8',Authorization:'Bearer '+tk},body:JSON.stringify({fields})});
-  const j=await r.json(); if(j.code!==0)throw new Error('update: '+JSON.stringify(j));
+  await larkJson(`${CFG.LARK_DOMAIN}/open-apis/bitable/v1/apps/${CFG.APP_TOKEN}/tables/${CFG.TABLE_ID}/records/${recId}`,
+    {method:'PUT',headers:{'Content-Type':'application/json; charset=utf-8',Authorization:'Bearer '+tk},body:JSON.stringify({fields})}, 'update');
 }
 async function downloadMedia(tk, fileToken, out) {
   const tries=[ `${CFG.LARK_DOMAIN}/open-apis/drive/v1/medias/${fileToken}/download?extra=${encodeURIComponent(JSON.stringify({bitablePerm:{tableId:CFG.TABLE_ID}}))}`,
                 `${CFG.LARK_DOMAIN}/open-apis/drive/v1/medias/${fileToken}/download` ];
-  for (const u of tries) { const r=await fetch(u,{headers:{Authorization:'Bearer '+tk}});
-    if (r.ok && (r.headers.get('content-type')||'').indexOf('json')<0) { const b=Buffer.from(await r.arrayBuffer()); fs.writeFileSync(out,b); return b.length; } }
-  throw new Error('không tải được media từ Lark');
+  for(let i=0;i<5;i++){
+    if(i) await sleep(1000*2**i + Math.floor(Math.random()*500));   // media cũng có thể bị bận → lùi rồi thử lại
+    for (const u of tries) { let r; try{ r=await fetch(u,{headers:{Authorization:'Bearer '+tk}}); }catch{ continue; }
+      if (r.ok && (r.headers.get('content-type')||'').indexOf('json')<0) { const b=Buffer.from(await r.arrayBuffer()); fs.writeFileSync(out,b); return b.length; } }
+    log(`     ⏳ chưa tải được media — thử lại ${i+1}/5...`);
+  }
+  throw new Error('không tải được media từ Lark (thử lại nhiều lần vẫn lỗi)');
 }
 async function fbFetch(u,o){ const r=await fetch(u,o); const t=await r.text(); let j; try{j=JSON.parse(t)}catch{j={_raw:t}}
   if(!r.ok||j.error)throw new Error('FB '+r.status+': '+JSON.stringify(j.error||j._raw||j)); return j; }
@@ -137,6 +152,7 @@ function scheduleMs(cell){ if(cell==null)return null; if(typeof cell==='number')
   const d=new Date(t); return isNaN(d)?null:d.getTime(); }
 
 (async()=>{
+  if(!DRY) await sleep(Math.floor(Math.random()*4000));   // lệch giờ ngẫu nhiên 0-4s: nhiều bài hẹn cùng phút không tông Lark cùng lúc
   const tk=await larkToken();
   // Tự dò cột link tới bảng Pages (type 18 single-link / 21 duplex-link) — không phụ thuộc tên cột.
   try {
