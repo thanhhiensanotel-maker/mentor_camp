@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 
 import requests
@@ -52,13 +53,26 @@ def _api_token():
 
 def _api(method, path, **kw):
     url = f"{config.LARK_DOMAIN}{path}"
-    headers = {"Authorization": f"Bearer {_api_token()}",
-               "Content-Type": "application/json; charset=utf-8"}
-    r = requests.request(method, url, headers=headers, timeout=60, **kw)
-    data = r.json()
-    if data.get("code") != 0:
-        raise LarkError(f"Lark API [{data.get('code')}] {data.get('msg')} ({path})")
-    return data.get("data", {})
+    # Tự thử lại khi bị Lark chặn nhịp (TooManyRequest 1254290 / HTTP 429).
+    delay = 2
+    for attempt in range(5):
+        headers = {"Authorization": f"Bearer {_api_token()}",
+                   "Content-Type": "application/json; charset=utf-8"}
+        r = requests.request(method, url, headers=headers, timeout=60, **kw)
+        try:
+            data = r.json()
+        except ValueError:
+            data = {"code": -1, "msg": r.text[:200]}
+        code = data.get("code")
+        if code == 0:
+            return data.get("data", {})
+        if code in (1254290, 1254291, 99991400) or r.status_code == 429:
+            if attempt < 4:
+                time.sleep(delay)
+                delay = min(delay * 2, 20)
+                continue
+        raise LarkError(f"Lark API [{code}] {data.get('msg')} ({path})")
+    raise LarkError(f"Lark API bị chặn nhịp nhiều lần ({path})")
 
 
 def _api_field(val):
