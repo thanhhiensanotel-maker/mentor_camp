@@ -287,7 +287,17 @@ def mark_done(record_id, link=""):
     if link and C.LARK_COL_URL:
         patch[C.LARK_COL_URL] = link
     if _use_api():
-        _api_update(record_id, patch)
+        # Cập nhật trạng thái trước (chắc chắn thành công)
+        _api_update(record_id, {C.LARK_COL_STATUS: C.LARK_STATUS_DONE})
+        # Ghi link riêng (cột có thể là kiểu URL → bọc {text, link}); lỗi cũng không sao
+        if link and C.LARK_COL_URL:
+            try:
+                _api_update(record_id, {C.LARK_COL_URL: {"text": link, "link": link}})
+            except LarkError:
+                try:
+                    _api_update(record_id, {C.LARK_COL_URL: link})
+                except LarkError:
+                    pass
         return
     body = json.dumps({"record_id_list": [record_id], "patch": patch},
                       ensure_ascii=False)
