@@ -1,0 +1,44 @@
+name: dang-wordpress
+
+on:
+  repository_dispatch:
+    types: [dang-wordpress]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 23 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cai thu vien
+        run: pip install -r skill-dang-wordpress/requirements.txt
+      - name: Dang bai WordPress tu Lark
+        working-directory: skill-dang-wordpress
+        env:
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          LARK_APP_ID: cli_aaae89e966f85e17
+          LARK_DOMAIN: https://open.larksuite.com
+          LARK_BASE_TOKEN: BuH1b5axjaKZotsTQO9jlwTAp4b
+          LARK_TABLE_ID: tblrTJbF7f9Zgknr
+          WP_SITE_URL: https://noithatchocon.com
+          WP_USERNAME: noithatchocon
+          WP_DEFAULT_STATUS: draft
+          WP_SEO_PLUGIN: none
+          LARK_COL_TITLE: "Tiêu đề"
+          LARK_COL_CONTENT: "Nội dung"
+          LARK_COL_KEYWORD: "Từ khoá SEO"
+          LARK_COL_META: "Meta description"
+          LARK_COL_SLUG: "Slug"
+          LARK_COL_TYPE: "Loại"
+          LARK_COL_STATUS: "Trạng thái"
+          LARK_COL_SCHEDULE: "Lịch đăng bài"
+          LARK_COL_URL: "Link bài đăng"
+          LARK_STATUS_PENDING: "Chờ đăng"
+          LARK_STATUS_DONE: "Đã đăng"
+        run: python -m app.cli queue -y
