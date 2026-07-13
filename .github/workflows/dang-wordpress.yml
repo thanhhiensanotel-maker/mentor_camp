@@ -29,7 +29,7 @@ jobs:
           WP_SITE_URL: https://noithatchocon.com
           WP_USERNAME: noithatchocon
           WP_DEFAULT_STATUS: draft
-          WP_SEO_PLUGIN: none
+          WP_SEO_PLUGIN: yoast
           LARK_COL_TITLE: "Tiêu đề"
           LARK_COL_CONTENT: "Nội dung"
           LARK_COL_KEYWORD: "Từ khoá SEO"
