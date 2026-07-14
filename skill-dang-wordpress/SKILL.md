@@ -75,11 +75,13 @@ article = {
 from app import blog, images, wordpress, lark
 KW = "bàn nâng hạ chống gù"   # key chính ≤4 chữ
 
-body = (intro_truc_tiep                       # đoạn trả lời trực tiếp (GEO)
+body = (blog.answer_box("Trả lời trực tiếp 40-60 từ…")        # GEO/AEO
+        + blog.key_takeaways(["ý chính 1", "ý chính 2", "…"]) # AIO (tóm tắt nhanh)
         + images.figure("Ảnh đăng web/Nội thất cho con/…/1.png", "caption chứa từ khoá")
-        + "<h2>1. …</h2>…"                    # heading ĐÁNH SỐ 1,2,3 / 3.1,3.2
+        + blog.heading("1", "Tiêu đề mục", 2) + "…"           # heading số + IN ĐẬM
+        + "<h3 style='font-weight:700;'>1.1. …</h3>…"          # AEO: mỗi H2 có câu trả lời thẳng
         + cta_tu_nhien                        # KHÔNG viết chữ "CTA"; lời kêu gọi + liên hệ
-        + blog.faq_block(faq, start_no=9))    # FAQ hiển thị + schema JSON-LD
+        + blog.faq_block(faq, start_no=9))    # AEO/GEO: FAQ hiển thị + schema JSON-LD
 content = blog.times_new_roman(body)          # bọc font Times New Roman
 
 article = {"title": f"… {KW} …", "slug": "…-khong-dau",

@@ -1,7 +1,7 @@
 ---
 name: viet-blog
 description: >
-  Viết 1 bài blog chuẩn SEO + GEO theo QUY TRÌNH SIPOC của SANOTEL/Nội Thất Cho Con, rồi
+  Viết 1 bài blog chuẩn SEO + AEO + AIO + GEO theo QUY TRÌNH SIPOC của SANOTEL/Nội Thất Cho Con, rồi
   (tuỳ chọn) đăng lên WordPress qua skill dang-bai-wordpress. Bài đạt: >1500 từ, bố cục
   liệt kê + heading đánh số (1, 2, 1.1...), từ khoá chính 4 từ ở tiêu đề, mật độ key chính
   1-3% & key đuôi dài 0.5-1.5%, meta ~150 ký tự, ≥4-5 ảnh có caption + logo, backlink
@@ -73,6 +73,21 @@ Hỏi/đọc các nguồn sau (nếu người dùng chưa đưa):
       • Có **subheading** đều đặn (~mỗi 300 từ 1 heading).
       • Dùng **từ nối** (vì vậy, tuy nhiên, ngoài ra, đầu tiên, cuối cùng...).
       • Hạn chế câu bị động.
+
+## 2A. 🎯 4 LỚP TỐI ƯU: SEO · AEO · AIO · GEO (bắt buộc phủ đủ)
+Mỗi bài phải phục vụ CẢ 4 lớp cùng lúc:
+- **SEO — Google xếp hạng:** từ khoá ở tiêu đề/slug/meta/H2/alt; mật độ 1-3%; heading số + đậm;
+  link nội bộ + link ngoài; >1500 từ; ảnh có alt.
+- **AEO — Answer Engine (featured snippet, trợ lý giọng nói):** ngay dưới MỖI H2 dạng câu hỏi,
+  viết 1 câu **trả lời trực tiếp 40-60 từ** (answer-first); dùng danh sách/bảng để máy trích;
+  **bắt buộc có khối FAQ + schema FAQPage** (`blog.faq_block`).
+- **AIO — Google AI Overview / trợ lý AI:** đầu bài có **KHỐI "Tóm tắt nhanh"** 3-5 gạch đầu dòng
+  ý chính (`blog.key_takeaways`); phủ đủ chủ đề phụ + câu hỏi "mọi người cũng hỏi"; thông tin cập nhật.
+- **GEO — ChatGPT/Gemini trích dẫn:** đầu bài có **đoạn TRẢ LỜI TRỰC TIẾP** (`blog.answer_box`);
+  câu văn ngắn, tự đứng độc lập, giàu **số liệu + định nghĩa rõ**; giọng đáng tin (E-E-A-T).
+
+**Công cụ sẵn (trong [[dang-bai-wordpress]]):** `blog.answer_box(text)` · `blog.key_takeaways([...])`
+· `blog.faq_block(faq)`. `check_quality()` sẽ CHẶN nếu thiếu FAQ hoặc thiếu đoạn trả lời trực tiếp/tóm tắt.
 
 ## 3. ĐĂNG BÀI
 Sau khi soạn `article` (schema xem [[dang-bai-wordpress]]) đủ checklist → đăng:
