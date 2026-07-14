@@ -31,13 +31,10 @@ Tự viết nội dung → đổ vào bảng Lark chờ duyệt → đăng lên 
   - Bảng DANH SÁCH WEB: `tbllbBoFFJzjTsYo` (Tên web · Loại · URL · Tài khoản · App Password).
 - `app/lark.py` tự chọn: có `LARK_APP_SECRET` → Lark Open API (mây); không → lark-cli (máy).
 
-## ⚠️ TIÊU CHUẨN NỘI DUNG — BẮT BUỘC theo skill [[viet-blog]]
-Mọi bài viết đăng qua skill này PHẢI đạt quy trình SIPOC trong **[[viet-blog]]**:
->1500 từ · bố cục liệt kê + heading đánh số (1, 2, 1.1) · tiêu đề chứa key chính ~4 từ ·
-meta ~150 ký tự · mật độ key chính 1-3% & đuôi dài 0.5-1.5% (mỗi loại ≥1 lần) ·
-backlink FB/TikTok/YouTube/Website · ≥4-5 ảnh có caption + alt + logo · font Times New Roman
-(bọc `<div style="font-family:'Times New Roman',Times,serif;">`) · danh mục "Chia sẻ" (id 256) ·
-CTA cuối bài · XANH cả 2 Yoast (SEO + Khả năng đọc). → Đọc [[viet-blog]] trước khi soạn `article`.
+## Phân vai (2 skill KHÔNG trùng nhau)
+- **[[viet-blog]]** = nguồn DUY NHẤT của **luật viết nội dung** (SOP, checklist, chất lượng).
+- **Skill này (dang-bai-wordpress)** = chỉ lo **ĐĂNG** (Lark ⇄ WordPress, code, cloud, ảnh, điểm Yoast).
+> Khi viết nội dung → theo [[viet-blog]]. Đừng chép lại luật nội dung vào đây.
 
 ## Cách vận hành (miễn phí — Claude Code tự viết, KHÔNG dùng API trả tiền)
 
