@@ -37,7 +37,7 @@ Hỏi/đọc các nguồn sau (nếu người dùng chưa đưa):
 - [ ] **Heading đánh số**: H2 = `1.`, `2.`, `3.`... ; H3 = `1.1`, `1.2`... (ghi số vào chính tiêu đề mục).
 - [ ] Mở bài có **đoạn trả lời trực tiếp** 2-3 câu (cho GEO/AI trích).
 - [ ] H2 nên dạng **câu hỏi** người dùng hay tra.
-- [ ] **CTA cuối bài** (mời liên hệ/tư vấn/inbox).
+- [ ] **CTA cuối bài** (mời liên hệ/tư vấn/inbox) — viết LỜI KÊU GỌI TỰ NHIÊN, **TUYỆT ĐỐI không viết chữ "CTA"** vào bài.
 
 ### SEO on-page
 - [ ] **Tiêu đề** ngắn gọn, chứa **key chính** (key chính chỉ ~4 từ).
@@ -83,6 +83,11 @@ wordpress.publish(article, status="publish", category=<id_danh_muc_Chia_se>)
 ```
 - Ảnh: nén nhỏ + nhúng data-URI (hosting chặn upload Media — xem [[dang-bai-wordpress]]).
 - Font Times New Roman: đã bọc trong `content_html`.
+
+## 3B. KIỂM TRA TRƯỚC KHI ĐĂNG (bắt buộc — bằng code)
+Chạy `blog.check_quality(article)` (xem [[dang-bai-wordpress]]) → PHẢI trả về rỗng.
+Nó tự chặn: bài <1500 từ · mật độ từ khoá ngoài 1-3% · thiếu key ở tiêu đề/meta ·
+<4 ảnh · lộ chữ "CTA". Chưa đạt thì viết bù / giảm từ khoá rồi kiểm lại, KHÔNG đăng vội.
 
 ## 4. ĐẦU RA & KIỂM TRA SAU ĐĂNG (bắt buộc)
 - [ ] **Check lại bài đã đăng**: mở bài trong wp-admin → Yoast **Phân tích SEO = Tốt (xanh)** +

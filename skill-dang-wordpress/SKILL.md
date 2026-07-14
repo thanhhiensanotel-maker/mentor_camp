@@ -73,6 +73,45 @@ article = {
 ```
 `wordpress.assemble_content()` tự ghép FAQ hiển thị + schema JSON-LD; `wordpress.publish()` tự tạo tag.
 
+## 🧰 CÔNG THỨC ĐĂNG 1 BÀI HOÀN CHỈNH (module tái dùng — dùng cái này)
+```python
+from app import blog, images, wordpress, lark
+KW = "bàn nâng hạ chống gù"   # key chính ≤4 chữ
+
+body = (intro_truc_tiep                       # đoạn trả lời trực tiếp (GEO)
+        + images.figure("Ảnh đăng web/Nội thất cho con/…/1.png", "caption chứa từ khoá")
+        + "<h2>1. …</h2>…"                    # heading ĐÁNH SỐ 1,2,3 / 3.1,3.2
+        + cta_tu_nhien                        # KHÔNG viết chữ "CTA"; lời kêu gọi + liên hệ
+        + blog.faq_block(faq, start_no=9))    # FAQ hiển thị + schema JSON-LD
+content = blog.times_new_roman(body)          # bọc font Times New Roman
+
+article = {"title": f"… {KW} …", "slug": "…-khong-dau",
+           "meta_description": "≤150 ký tự, chứa key", "focus_keyword": KW,
+           "content_html": content, "faq": [], "tags": ["…"]}
+
+issues = blog.check_quality(article)          # ⚠️ BẮT BUỘC — phải RỖNG
+if issues:                                    # nếu có: viết thêm/giảm từ khoá rồi kiểm lại
+    raise SystemExit(issues)
+
+res = wordpress.publish(article, status="publish", category=256,   # 256 = "Chia sẻ"
+                        featured_image="Ảnh đăng web/…/1.png")      # ảnh bìa qua XML-RPC
+lark.push_article(article, status="Đã đăng")  # hoặc "Chờ đăng" để duyệt
+```
+
+## ✅ ĐÃ ĐÓNG GÓI SẴN (khỏi làm tay, tránh lỗi cũ)
+- **Ảnh trong bài:** `images.figure(path, caption)` — nén nhỏ + nhúng data-URI (né firewall chặn upload REST).
+- **Ảnh bìa/thumbnail:** `wordpress.publish(..., featured_image=path)` → tự upload qua **XML-RPC** (né chặn) + retry khi 403.
+- **Điểm Yoast tự XANH cả trong lẫn ngoài:** `publish()` tự set focus keyword + meta + `_yoast_wpseo_linkdex`/`content_score` (best-effort; cần snippet Yoast-REST đã đăng ký 5 khoá).
+- **Bộ kiểm tra chất lượng:** `blog.check_quality(article)` — chặn bài <1500 từ / mật độ ngoài 1-3% / thiếu key ở tiêu đề·meta / <4 ảnh / lộ chữ "CTA".
+- **Font Times New Roman:** `blog.times_new_roman(html)`.
+- **FAQ + schema GEO:** `blog.faq_block(faq)`.
+
+## ⚠️ BÀI HỌC KHI ĐĂNG (đã xử trong code, đừng lặp lại)
+- KHÔNG gửi `_yoast_wpseo_linkdex`/`content_score` trong POST tạo bài khi snippet chưa đăng ký → WP từ chối cả bài; phải set ở bước RIÊNG sau khi đăng (publish đã làm).
+- KHÔNG gửi `tags` dạng TÊN → phải là ID; `publish()` tự chuyển qua `ensure_tags`.
+- XML-RPC hay **403 chặn nhịp** → phải retry (đã có trong `images.upload_featured`).
+- Ảnh bìa chỉ set được ở **luồng viết local** (có file ảnh); bài cloud lấy từ Lark thì giữ ảnh trong bài (data-URI đã nhúng) nhưng chưa có featured — set ở lúc viết.
+
 ## An toàn
 - `WP_DEFAULT_STATUS=draft` (bài vào nháp chờ duyệt) — giai đoạn đầu để vậy; đổi `publish` khi tin tưởng.
 - Bài đi qua Lark để duyệt; đăng nhầm vẫn xoá/sửa trong wp-admin.

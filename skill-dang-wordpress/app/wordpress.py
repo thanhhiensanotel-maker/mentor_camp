@@ -194,8 +194,10 @@ def assemble_content(article):
             + _faq_jsonld(article.get("faq")))
 
 
-def publish(article, status=None, category=None, date=None):
+def publish(article, status=None, category=None, date=None, featured_image=None):
     """Đăng 1 bài. `article` là dict từ claude_client.write_article.
+
+    featured_image: đường dẫn ảnh cục bộ → tự upload ảnh bìa qua XML-RPC (best-effort).
 
     status: publish | draft | future. date: ISO 8601 (cho 'future').
     Trả về dict bài đã tạo (có 'link').
@@ -229,6 +231,13 @@ def publish(article, status=None, category=None, date=None):
                       json=payload, timeout=90)
     res = _check(r)
     _set_seo_score(res.get("id"), article)
+    if featured_image and res.get("id"):
+        try:
+            from . import images
+            slug = article.get("slug") or "thumbnail"
+            images.upload_featured(res["id"], featured_image, filename=f"{slug}.jpg")
+        except Exception:  # noqa: BLE001 — ảnh bìa lỗi không được chặn việc đăng
+            pass
     return res
 
 
