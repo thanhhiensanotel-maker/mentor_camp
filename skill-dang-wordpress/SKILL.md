@@ -1,123 +1,127 @@
 ---
-name: dang-bai-wordpress
+name: dang-bai-tu-dong-wordpress
 description: >
-  Tự viết bài blog chuẩn SEO + GEO rồi đăng lên website WordPress, có bảng Lark làm bàn điều khiển.
-  Luồng: Claude viết bài (tiêu đề ≤60, meta ≤155, slug, H2 dạng câu hỏi, đoạn trả lời trực tiếp cho AI,
-  FAQ + schema JSON-LD) → đổ vào bảng nội dung Lark ("Chờ đăng" để duyệt) → đăng lên WordPress qua REST API
-  (Application Password) → ghi "Đã đăng" + link về Lark. Chạy được trên máy (wordpress-studio) và trên mây
-  (GitHub Actions: bấm nút Lark hoặc cron 6h sáng). Song sinh của skill đăng bài Facebook.
-  Dùng khi người dùng muốn: viết blog đăng lên web, đăng bài WordPress tự động, đăng bài chuẩn SEO/GEO,
-  lên lịch bài blog 6h sáng, đổ bài vào bảng Lark chờ duyệt.
-  Kích hoạt khi có từ: đăng bài wordpress, viết blog đăng web, đăng bài lên web, wordpress studio,
-  bài blog chuẩn seo geo, đăng bài 6h sáng, đổ bài vào lark, noithatchocon.
+  Bộ skill TRỌN GÓI: tự VIẾT bài blog chuẩn SEO + AEO + AIO + GEO (quy trình SIPOC của
+  SANOTEL/Nội Thất Cho Con) rồi ĐĂNG tự động lên website WordPress, có bảng Lark làm bàn
+  điều khiển và GitHub Actions chạy trên mây (bấm nút Lark hoặc cron 6h sáng — máy tắt vẫn chạy).
+  Bài đạt: >1500 từ, heading đánh số + in đậm, ảnh có caption căn giữa + logo + ảnh bìa,
+  meta ~150 ký tự, mật độ từ khoá 1-3%, backlink, CTA liên hệ (không lộ chữ "CTA"),
+  font Times New Roman, danh mục "Tin tức", FAQ + schema, và XANH cả 2 chỉ số Yoast.
+  Dùng khi người dùng muốn: viết + đăng blog WordPress tự động, viết bài chuẩn SEO/AEO/AIO/GEO,
+  lên lịch bài 6h sáng, đổ bài vào Lark chờ duyệt, đăng bài nội thất/giường tầng/bàn nâng hạ.
+  Kích hoạt khi có từ: đăng bài wordpress, viết blog, viết bài seo, đăng bài tự động,
+  bài blog chuẩn seo geo, đăng bài 6h sáng, đổ bài vào lark, viết blog nội thất, noithatchocon,
+  wordpress studio, viết blog sanotel.
 ---
 
-# Skill: Đăng bài blog WordPress (SEO + GEO) qua bảng Lark
+# Skill: Đăng bài tự động WordPress (viết + đăng, chuẩn SEO/AEO/AIO/GEO)
 
-Tự viết nội dung → đổ vào bảng Lark chờ duyệt → đăng lên WordPress. Bàn điều khiển là bảng Lark.
+Một skill trọn gói: **VIẾT** nội dung đạt chuẩn → **ĐĂNG** tự động lên web.
+Gồm 2 phần: **A. VIẾT** (nội dung) và **B. ĐĂNG** (cơ chế). Đọc cả hai trước khi làm.
 
-## Vị trí
-
-- **Bản chạy máy:** `d:\Hien's Brain\wordpress-studio\` (Python app, có `.env`, các file .bat, HƯỚNG DẪN.md, QUY TRÌNH.md).
-- **Bản chạy mây:** repo `thanhhiensanotel-maker/mentor_camp` → thư mục `skill-dang-wordpress/`
-  + workflow `.github/workflows/dang-wordpress.yml` (repository_dispatch `dang-wordpress` + cron 6h sáng VN).
-
-## Kết nối (đã cấu hình, xem `.env` của wordpress-studio)
-
-- **WordPress:** https://noithatchocon.com — REST API `/wp-json/wp/v2/posts`, xác thực Application Password.
-  Bẫy: hosting chặn `/users/me` (chống dò user) nhưng đăng bài vẫn chạy → xác thực qua `/posts?context=edit`.
-- **Lark base:** `BuH1b5axjaKZotsTQO9jlwTAp4b` (app `cli_aaae89e966f85e17`).
-  - Bảng NỘI DUNG blog: `tblrTJbF7f9Zgknr` (cột: Tiêu đề · Nội dung · Từ khoá SEO · Meta description · Slug · Loại · Trạng thái{Chờ đăng/Đã đăng/Lỗi} · Lịch đăng bài · Link bài đăng · Web).
-  - Bảng DANH SÁCH WEB: `tbllbBoFFJzjTsYo` (Tên web · Loại · URL · Tài khoản · App Password).
+## Vị trí & kết nối
+- **App chạy máy:** `d:\Hien's Brain\wordpress-studio\` (`.venv`, `.env`, file .bat, HƯỚNG DẪN/QUY TRÌNH.md).
+- **Bản chạy mây:** repo `thanhhiensanotel-maker/mentor_camp` → `skill-dang-wordpress/` + workflow
+  `.github/workflows/dang-wordpress.yml` (event `dang-wordpress` + cron `0 23 * * *` = 6h sáng VN).
+- **WordPress:** https://noithatchocon.com — REST API + Application Password. Bẫy: hosting chặn
+  `/users/me` và upload `/media` (403) → xác thực qua `/posts?context=edit`; ảnh bìa upload qua **XML-RPC**.
+- **Lark base** `BuH1b5axjaKZotsTQO9jlwTAp4b` (app `cli_aaae89e966f85e17`):
+  bảng NỘI DUNG `tblrTJbF7f9Zgknr` (18.2), bảng DANH SÁCH WEB `tbllbBoFFJzjTsYo` (18.1).
 - `app/lark.py` tự chọn: có `LARK_APP_SECRET` → Lark Open API (mây); không → lark-cli (máy).
 
-## Phân vai (2 skill KHÔNG trùng nhau)
-- **[[viet-blog]]** = nguồn DUY NHẤT của **luật viết nội dung** (SOP, checklist, chất lượng).
-- **Skill này (dang-bai-wordpress)** = chỉ lo **ĐĂNG** (Lark ⇄ WordPress, code, cloud, ảnh, điểm Yoast).
-> Khi viết nội dung → theo [[viet-blog]]. Đừng chép lại luật nội dung vào đây.
+---
+# PHẦN A — VIẾT NỘI DUNG (chuẩn SEO + AEO + AIO + GEO)
 
-## Cách vận hành (miễn phí — Claude Code tự viết, KHÔNG dùng API trả tiền)
+## A0. Đầu vào cần có
+Chủ đề + **từ khoá chính (≤4 chữ)** + từ khoá đuôi dài; insight khách (CHÂN DUNG KHÁCH HÀNG
+SANOTEL.xlsx); bộ từ khoá web (TỪ KHÓA WEB); plan (Content Marketing planning.xlsx). Research:
+keywordtool.io, Google Trends VN. Chưa có file thì hỏi người dùng / chốt từ khoá tay.
 
-1. **Viết bài:** soạn 1 dict `article` ĐÚNG chuẩn [[viet-blog]] (tự viết, đừng gọi Anthropic API).
-2. **Đổ vào Lark chờ duyệt:** chạy trong `wordpress-studio` (đã có `.venv`):
-   ```python
-   from app import lark
-   lark.push_article(article, status="Chờ đăng", loai="Cẩm nang")  # thêm schedule="YYYY-MM-DD HH:MM:SS" nếu hẹn giờ
-   ```
-3. **Đăng lên web:** `python -m app.cli queue -y` — đọc bài "Chờ đăng" → đăng → ghi "Đã đăng" + link.
-   (Trên mây: bấm nút "Đăng" trong bảng Lark, hoặc cron 6h sáng tự chạy.)
+## A1. 🎯 4 LỚP TỐI ƯU (bắt buộc phủ đủ)
+- **SEO — Google xếp hạng:** từ khoá ở tiêu đề/slug/meta/H2/alt; mật độ **1-3%**; >1500 từ;
+  heading số + đậm; link nội bộ + link ngoài; ảnh có alt.
+- **AEO — Answer Engine (featured snippet, trợ lý giọng nói):** mỗi H2 (câu hỏi) có **câu trả lời
+  thẳng 40-60 từ**; dùng danh sách/bảng; **bắt buộc FAQ + schema FAQPage** (`blog.faq_block`).
+- **AIO — Google AI Overview / trợ lý AI:** đầu bài có **khối "Tóm tắt nhanh"** (`blog.key_takeaways`);
+  phủ đủ chủ đề phụ + câu hỏi "mọi người cũng hỏi"; thông tin cập nhật, rõ thực thể.
+- **GEO — ChatGPT/Gemini trích dẫn:** đầu bài có **đoạn trả lời trực tiếp** (`blog.answer_box`);
+  câu ngắn tự đứng độc lập, giàu **số liệu + định nghĩa**; giọng đáng tin (E-E-A-T).
 
-### Lệnh CLI hay dùng (chạy trong wordpress-studio, `.venv\Scripts\activate`)
-```
-python -m app.cli test                 # kiểm tra kết nối WordPress
-python -m app.cli lark-test            # liệt kê bài "Chờ đăng" trong Lark
-python -m app.cli draft "chủ đề"       # soạn thử, không đăng
-python -m app.cli post "chủ đề" -y     # viết + đăng thẳng 1 bài
-python -m app.cli queue -y             # đăng tất cả bài "Chờ đăng" từ Lark
-```
+## A2. Checklist ĐỊNH DẠNG & SEO (bắt buộc)
+- [ ] **> 1500 từ**, viết ở **vị thế khách hàng**, giải **nỗi đau**, bố cục **liệt kê** (ul/ol), không đoạn dài.
+- [ ] **Tiêu đề KHÔNG có dấu ":"** (dùng " - " nếu cần), ngắn gọn, chứa **key chính ≤4 chữ**.
+- [ ] **Heading & subheading ĐÁNH SỐ + IN ĐẬM** (`blog.heading(no,text,level)`), mỗi H2 nên có ≥1 H3.
+- [ ] **Ảnh ≥4-5**, có **caption CĂN GIỮA** + alt chứa từ khoá + **logo công ty** (`images.figure()`).
+      Ảnh lấy từ `Ảnh đăng web/<thương hiệu>/`; ảnh chưa có logo → đóng bằng GOUP Watermark.
+- [ ] **Ảnh bìa (thumbnail)** đẹp, liên quan (tự upload qua XML-RPC — xem B).
+- [ ] **Meta ~150 ký tự**, chứa key; **slug** ngắn không dấu chứa key; key chính + đuôi dài ≥1 lần.
+- [ ] **Backlink** vào từ khoá chính → FB/TikTok/YouTube/Website (`.env` BRAND_*); có ≥1 **link nội bộ**.
+- [ ] **CTA liên hệ cuối bài** — lời kêu gọi tự nhiên (`blog.cta()`), **TUYỆT ĐỐI không viết chữ "CTA"**.
+- [ ] **Font Times New Roman** (`blog.times_new_roman(html)` bọc toàn thân bài).
+- [ ] Readability xanh: câu ngắn (<20 từ), đoạn 2-4 câu, subheading đều, dùng từ nối, ít câu bị động.
 
-### Schema `article`
-```python
-article = {
-  "title": "...",              # ≤60 ký tự, chứa từ khoá chính
-  "slug": "...",               # không dấu, gạch nối, chứa từ khoá
-  "meta_description": "...",   # ≤155 ký tự, có từ khoá + CTA nhẹ
-  "focus_keyword": "...",
-  "tags": ["...", "..."],
-  "content_html": "<p>...</p><h2>...</h2>...",  # thân bài; mở đầu có ĐOẠN TRẢ LỜI TRỰC TIẾP; H2 dạng câu hỏi; có danh sách; 1 link nội bộ
-  "faq": [{"q": "...", "a": "..."}]             # 3-5 câu → tự gắn <script> JSON-LD FAQPage cho GEO
-}
-```
-`wordpress.assemble_content()` tự ghép FAQ hiển thị + schema JSON-LD; `wordpress.publish()` tự tạo tag.
+## A3. KIỂM TRA TRƯỚC KHI ĐĂNG (bắt buộc — bằng code)
+`blog.check_quality(article)` PHẢI trả về **rỗng**. Nó chặn: <1500 từ · mật độ ngoài 1-3% ·
+thiếu key ở tiêu đề/meta · tiêu đề có ":" · <4 ảnh · lộ chữ "CTA" · thiếu CTA liên hệ ·
+heading chưa in đậm · caption chưa căn giữa · thiếu FAQ schema · thiếu đoạn trả lời trực tiếp/tóm tắt.
+Chưa đạt → viết bù / giảm từ khoá rồi kiểm lại, **KHÔNG đăng vội**.
 
-## 🧰 CÔNG THỨC ĐĂNG 1 BÀI HOÀN CHỈNH (module tái dùng — dùng cái này)
+---
+# PHẦN B — ĐĂNG BÀI (cơ chế, miễn phí)
+
+## B1. Công thức đăng 1 bài hoàn chỉnh
 ```python
 from app import blog, images, wordpress, lark
-KW = "bàn nâng hạ chống gù"   # key chính ≤4 chữ
-
-body = (blog.answer_box("Trả lời trực tiếp 40-60 từ…")        # GEO/AEO
-        + blog.key_takeaways(["ý chính 1", "ý chính 2", "…"]) # AIO (tóm tắt nhanh)
-        + images.figure("Ảnh đăng web/Nội thất cho con/…/1.png", "caption chứa từ khoá")
-        + blog.heading("1", "Tiêu đề mục", 2) + "…"           # heading số + IN ĐẬM
-        + "<h3 style='font-weight:700;'>1.1. …</h3>…"          # AEO: mỗi H2 có câu trả lời thẳng
-        + cta_tu_nhien                        # KHÔNG viết chữ "CTA"; lời kêu gọi + liên hệ
-        + blog.faq_block(faq, start_no=9))    # AEO/GEO: FAQ hiển thị + schema JSON-LD
-content = blog.times_new_roman(body)          # bọc font Times New Roman
-
+KW = "bàn nâng hạ chống gù"                 # key chính ≤4 chữ
+body = (blog.answer_box("Trả lời trực tiếp 40-60 từ…")       # GEO/AEO
+        + blog.key_takeaways(["ý chính 1", "ý chính 2", "…"])# AIO
+        + images.figure("Ảnh đăng web/…/1.png", "caption chứa từ khoá")  # caption căn giữa
+        + blog.heading("1", "Tiêu đề mục", 2) + "<p>…</p>"   # heading số + đậm
+        + blog.heading("1.1", "Mục con", 3) + "<p>…</p>"
+        + blog.cta("Cần tư vấn?", "https://noithatchocon.com/lien-he")   # không lộ chữ CTA
+        + blog.faq_block(faq, start_no=9))                   # FAQ + schema JSON-LD
+content = blog.times_new_roman(body)                         # font Times New Roman
 article = {"title": f"… {KW} …", "slug": "…-khong-dau",
-           "meta_description": "≤150 ký tự, chứa key", "focus_keyword": KW,
+           "meta_description": "≤150 ký tự chứa key", "focus_keyword": KW,
            "content_html": content, "faq": [], "tags": ["…"]}
 
-issues = blog.check_quality(article)          # ⚠️ BẮT BUỘC — phải RỖNG
-if issues:                                    # nếu có: viết thêm/giảm từ khoá rồi kiểm lại
-    raise SystemExit(issues)
+issues = blog.check_quality(article)                         # ⚠️ phải RỖNG
+if issues: raise SystemExit(issues)
 
-res = wordpress.publish(article, status="publish", category=17,    # 17 = "Tin tức"
-                        featured_image="Ảnh đăng web/…/1.png")      # ảnh bìa qua XML-RPC
-lark.push_article(article, status="Đã đăng")  # hoặc "Chờ đăng" để duyệt
+res = wordpress.publish(article, status="publish", category=17,   # 17 = "Tin tức"
+                        featured_image="Ảnh đăng web/…/1.png")     # ảnh bìa qua XML-RPC
+lark.push_article(article, status="Đã đăng")                # hoặc "Chờ đăng" để duyệt
 ```
 
-## ✅ ĐÃ ĐÓNG GÓI SẴN (khỏi làm tay, tránh lỗi cũ)
-- **Ảnh trong bài:** `images.figure(path, caption)` — nén nhỏ + nhúng data-URI (né firewall chặn upload REST).
-- **Ảnh bìa/thumbnail:** `wordpress.publish(..., featured_image=path)` → tự upload qua **XML-RPC** (né chặn) + retry khi 403.
-- **Điểm Yoast tự XANH cả trong lẫn ngoài:** `publish()` tự set focus keyword + meta + `_yoast_wpseo_linkdex`/`content_score` (best-effort; cần snippet Yoast-REST đã đăng ký 5 khoá).
-- **Bộ kiểm tra chất lượng:** `blog.check_quality(article)` — chặn bài <1500 từ / mật độ ngoài 1-3% / thiếu key ở tiêu đề·meta / <4 ảnh / lộ chữ "CTA".
-- **Font Times New Roman:** `blog.times_new_roman(html)`.
-- **FAQ + schema GEO:** `blog.faq_block(faq)`.
+## B2. Lệnh CLI (chạy trong wordpress-studio, `.venv\Scripts\activate`)
+```
+python -m app.cli test          # kiểm tra kết nối WordPress
+python -m app.cli lark-test     # liệt kê bài "Chờ đăng" trong Lark
+python -m app.cli post "chủ đề" -y   # viết + đăng 1 bài
+python -m app.cli queue -y      # đăng tất cả bài "Chờ đăng" từ Lark
+```
+Trên mây: bấm nút **"Đăng"** ở bảng Lark 18.2, hoặc **cron 6h sáng** tự chạy `queue`.
 
-## ⚠️ BÀI HỌC KHI ĐĂNG (đã xử trong code, đừng lặp lại)
-- KHÔNG gửi `_yoast_wpseo_linkdex`/`content_score` trong POST tạo bài khi snippet chưa đăng ký → WP từ chối cả bài; phải set ở bước RIÊNG sau khi đăng (publish đã làm).
-- KHÔNG gửi `tags` dạng TÊN → phải là ID; `publish()` tự chuyển qua `ensure_tags`.
-- XML-RPC hay **403 chặn nhịp** → phải retry (đã có trong `images.upload_featured`).
-- Ảnh bìa chỉ set được ở **luồng viết local** (có file ảnh); bài cloud lấy từ Lark thì giữ ảnh trong bài (data-URI đã nhúng) nhưng chưa có featured — set ở lúc viết.
+## B3. Module đã đóng gói (khỏi làm tay)
+- **`images.py`**: `figure(path,caption)` nén + nhúng data-URI ảnh trong bài (né chặn upload REST),
+  caption căn giữa; `upload_featured(post_id,path)` upload **ảnh bìa qua XML-RPC** + retry khi 403.
+- **`blog.py`**: `answer_box` (GEO/AEO) · `key_takeaways` (AIO) · `faq_block` (AEO/GEO) ·
+  `heading` (số+đậm) · `cta` · `times_new_roman` · **`check_quality`** (cổng chất lượng).
+- **`wordpress.publish(..., category=17, featured_image=path)`**: tự set focus keyword + meta +
+  **điểm Yoast** `_yoast_wpseo_linkdex`/`content_score`=90 → XANH cả trong lẫn ngoài; tự upload ảnh bìa.
 
-## An toàn
-- `WP_DEFAULT_STATUS=draft` (bài vào nháp chờ duyệt) — giai đoạn đầu để vậy; đổi `publish` khi tin tưởng.
+## B4. Bẫy đã xử (đừng lặp lại)
+- KHÔNG gửi khoá điểm Yoast trong POST tạo bài (WP từ chối cả bài) → set ở call RIÊNG sau (publish đã làm).
+  Cần **snippet Yoast-REST** đã đăng ký 5 khoá (focuskw, metadesc, title, linkdex, content_score).
+- `tags` phải là ID, không phải tên → `ensure_tags` tự chuyển.
+- XML-RPC hay **403 chặn nhịp** → retry (đã có trong `upload_featured`).
+- Ảnh bìa chỉ set ở **luồng viết local** (có file); bài cloud lấy từ Lark giữ ảnh trong bài (data-URI đã nhúng).
+- Hosting hay **cache** → sau đăng/sửa bảo người dùng F5/Purge cache.
+
+## B5. An toàn
+- Giai đoạn đầu để `WP_DEFAULT_STATUS=draft` (nháp chờ duyệt); tin tưởng rồi đổi `publish`.
 - Bài đi qua Lark để duyệt; đăng nhầm vẫn xoá/sửa trong wp-admin.
-- KHÔNG ghi mật khẩu WordPress vào Lark; giữ trong `.env` (máy) và GitHub Secrets (mây).
+- KHÔNG ghi mật khẩu WordPress vào Lark; giữ trong `.env` (máy) + GitHub Secrets (mây).
 
-## Nội dung theo thương hiệu
-Định hướng giọng văn / được-không-được nói: xem `QUY TRÌNH.md` trong wordpress-studio.
-Ảnh đăng bài: thư mục `Ảnh đăng web/<thương hiệu>/` (Ảnh đại diện · Ảnh trong bài · Ảnh gốc chưa xử lý).
-
-Related: skill-dang-reel-facebook (bản Facebook), viet-bai-seo-chuan.
+Related: skill-dang-reel-facebook (bản Facebook), [[goup-watermark-tool]] (đóng logo ảnh),
+[[viet-bai-seo-chuan]] (skill SEO chung).
