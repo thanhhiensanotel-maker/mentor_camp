@@ -37,6 +37,9 @@ Chủ đề + **từ khoá chính (≤4 chữ)** + từ khoá đuôi dài; insig
 SANOTEL.xlsx); bộ từ khoá web (TỪ KHÓA WEB); plan (Content Marketing planning.xlsx). Research:
 keywordtool.io, Google Trends VN. Chưa có file thì hỏi người dùng / chốt từ khoá tay.
 
+> 📚 **Tri thức SEO lõi:** đọc `references/seo-blog-checklist.md` (checklist 9 khối + bảng vị trí
+> từ khoá + gate xanh Yoast, dựa trên Yoast/Backlinko/Ogilvy). Mẫu brief: `references/phieu-bai-viet.md`.
+
 ## A1. 🎯 4 LỚP TỐI ƯU (bắt buộc phủ đủ)
 - **SEO — Google xếp hạng:** từ khoá ở tiêu đề/slug/meta/H2/alt; mật độ **1-3%**; >1500 từ;
   heading số + đậm; link nội bộ + link ngoài; ảnh có alt.

@@ -48,8 +48,8 @@ def faq_block(faq, start_no=9):
     """
     if not faq:
         return ""
-    rows = "".join(f"<h3>{q}</h3><p>{a}</p>" for q, a in faq)
-    html = f"<h2>{start_no}. Câu hỏi thường gặp</h2>{rows}"
+    rows = "".join(f'<h3 style="font-weight:700;">{q}</h3><p>{a}</p>' for q, a in faq)
+    html = f'<h2 style="font-weight:700;">{start_no}. Câu hỏi thường gặp</h2>{rows}'
     ld = ('<script type="application/ld+json">' + json.dumps(
         {"@context": "https://schema.org", "@type": "FAQPage",
          "mainEntity": [{"@type": "Question", "name": q,
