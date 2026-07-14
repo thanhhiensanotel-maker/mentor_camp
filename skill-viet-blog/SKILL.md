@@ -5,7 +5,7 @@ description: >
   (tuỳ chọn) đăng lên WordPress qua skill dang-bai-wordpress. Bài đạt: >1500 từ, bố cục
   liệt kê + heading đánh số (1, 2, 1.1...), từ khoá chính 4 từ ở tiêu đề, mật độ key chính
   1-3% & key đuôi dài 0.5-1.5%, meta ~150 ký tự, ≥4-5 ảnh có caption + logo, backlink
-  FB/TikTok/YouTube/Website, CTA cuối bài, font Times New Roman, danh mục "Chia sẻ",
+  FB/TikTok/YouTube/Website, CTA cuối bài, font Times New Roman, danh mục "Tin tức",
   và XANH cả 2 chỉ số Yoast (Phân tích SEO + Khả năng đọc).
   Dùng khi người dùng muốn viết bài blog, viết content chuẩn SEO/GEO cho web nội thất,
   lên bài blog nội thất/giường tầng/bàn nâng hạ, viết bài theo quy trình SANOTEL.
@@ -34,7 +34,9 @@ Hỏi/đọc các nguồn sau (nếu người dùng chưa đưa):
 - [ ] **> 1500 từ**.
 - [ ] Viết ở **vị thế khách hàng**, giải quyết **nỗi đau** (theo chân dung khách).
 - [ ] **Bố cục liệt kê rõ ràng** — KHÔNG viết đoạn dài liên tục; tách ý bằng danh sách (ul/ol).
-- [ ] **Heading đánh số**: H2 = `1.`, `2.`, `3.`... ; H3 = `1.1`, `1.2`... (ghi số vào chính tiêu đề mục).
+- [ ] **Tiêu đề bài KHÔNG có dấu hai chấm ":"** (nếu cần ngăn ý thì dùng " - ").
+- [ ] **Heading & subheading ĐÁNH SỐ + IN ĐẬM**: H2 = `1.`, `2.`... ; H3 = `1.1`, `1.2`... , tất cả `style="font-weight:700;"` (dùng `blog.heading(no, text, level)`). Mỗi mục H2 lớn NÊN có ≥1 subheading H3.
+- [ ] **Chú thích ảnh (figcaption) CĂN GIỮA** + ảnh căn giữa (dùng `images.figure()` — đã tự làm).
 - [ ] Mở bài có **đoạn trả lời trực tiếp** 2-3 câu (cho GEO/AI trích).
 - [ ] H2 nên dạng **câu hỏi** người dùng hay tra.
 - [ ] **CTA cuối bài** (mời liên hệ/tư vấn/inbox) — viết LỜI KÊU GỌI TỰ NHIÊN, **TUYỆT ĐỐI không viết chữ "CTA"** vào bài.
@@ -61,7 +63,7 @@ Hỏi/đọc các nguồn sau (nếu người dùng chưa đưa):
 ### Định dạng & phân loại
 - [ ] **Font Times New Roman**: bọc thân bài trong
       `<div style="font-family:'Times New Roman',Times,serif;">...</div>`.
-- [ ] **Danh mục** tích vào **"Chia sẻ"** (tạo category nếu chưa có).
+- [ ] **Danh mục** tích vào **"Tin tức"** (id 17).
 
 ### Chất lượng (Yoast)
 - [ ] **Phân tích SEO: XANH** — nhờ đủ tiêu chí trên + ghi focus keyword & meta vào Yoast qua API
@@ -78,8 +80,8 @@ Sau khi soạn `article` (schema xem [[dang-bai-wordpress]]) đủ checklist →
 from app import lark, wordpress
 # đổ vào bảng Lark 18.2 để duyệt (khuyên dùng)
 lark.push_article(article, status="Chờ đăng", loai="Cẩm nang")
-# hoặc đăng thẳng WP (đặt category "Chia sẻ"):
-wordpress.publish(article, status="publish", category=<id_danh_muc_Chia_se>)
+# hoặc đăng thẳng WP (đặt category "Tin tức" id 17):
+wordpress.publish(article, status="publish", category=17, featured_image="…/thumb.png")
 ```
 - Ảnh: nén nhỏ + nhúng data-URI (hosting chặn upload Media — xem [[dang-bai-wordpress]]).
 - Font Times New Roman: đã bọc trong `content_html`.
@@ -93,7 +95,7 @@ Nó tự chặn: bài <1500 từ · mật độ từ khoá ngoài 1-3% · thiế
 - [ ] **Check lại bài đã đăng**: mở bài trong wp-admin → Yoast **Phân tích SEO = Tốt (xanh)** +
       **Khả năng đọc = Tốt (xanh)**.
 - [ ] Ảnh hiện đủ, có caption + logo; thumbnail đẹp.
-- [ ] Danh mục = "Chia sẻ"; backlink FB/TikTok/YT/Web hoạt động.
+- [ ] Danh mục = "Tin tức"; backlink FB/TikTok/YT/Web hoạt động.
 - [ ] Không lỗi bố cục (khung mục lục, font).
 
 ## 5. MỤC TIÊU (Customers)

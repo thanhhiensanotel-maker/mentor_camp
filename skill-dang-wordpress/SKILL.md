@@ -90,7 +90,7 @@ issues = blog.check_quality(article)          # ⚠️ BẮT BUỘC — phải R
 if issues:                                    # nếu có: viết thêm/giảm từ khoá rồi kiểm lại
     raise SystemExit(issues)
 
-res = wordpress.publish(article, status="publish", category=256,   # 256 = "Chia sẻ"
+res = wordpress.publish(article, status="publish", category=17,    # 17 = "Tin tức"
                         featured_image="Ảnh đăng web/…/1.png")      # ảnh bìa qua XML-RPC
 lark.push_article(article, status="Đã đăng")  # hoặc "Chờ đăng" để duyệt
 ```

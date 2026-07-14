@@ -32,9 +32,11 @@ def data_uri(path, max_w=900, quality=78):
 
 
 def figure(path, caption, max_w=900):
-    """1 khối <figure> có ảnh nhúng + caption (tiêu đề ảnh) + alt = caption."""
-    return (f'<figure><img src="{data_uri(path, max_w)}" alt="{caption}" '
-            f'loading="lazy"/><figcaption>{caption}</figcaption></figure>')
+    """1 khối <figure> CĂN GIỮA có ảnh nhúng + caption (tiêu đề ảnh, căn giữa) + alt = caption."""
+    return (f'<figure style="text-align:center;">'
+            f'<img src="{data_uri(path, max_w)}" alt="{caption}" loading="lazy"/>'
+            f'<figcaption style="text-align:center;font-style:italic;color:#666;">'
+            f'{caption}</figcaption></figure>')
 
 
 def _auth():

@@ -12,6 +12,18 @@ def times_new_roman(html):
     return f'<div style="font-family:\'Times New Roman\',Times,serif;">{html}</div>'
 
 
+def heading(no, text, level=2):
+    """Heading/subheading CÓ SỐ THỨ TỰ + IN ĐẬM. no ví dụ: '1', '2.1'."""
+    tag = f"h{level}"
+    return f'<{tag} style="font-weight:700;">{no}. {text}</{tag}>'
+
+
+def cta(text, link, label="Liên hệ Nội Thất Cho Con"):
+    """Khối CTA liên hệ cuối bài (lời kêu gọi tự nhiên — KHÔNG viết chữ 'CTA')."""
+    return (f'<p>{text} 👉 <a href="{link}"><strong>{label}</strong></a> '
+            f'để được tư vấn ngay.</p>')
+
+
 def faq_block(faq, start_no=9):
     """Từ list [(câu hỏi, trả lời)] → (html hiển thị, script JSON-LD FAQPage cho GEO).
 
@@ -68,11 +80,21 @@ def check_quality(article, min_words=1500, dmin=1.0, dmax=3.0, min_images=4):
             issues.append("Meta description chưa chứa từ khoá chính.")
     if len(kw.split()) > 4:
         issues.append("Từ khoá chính > 4 chữ — nên rút gọn.")
+    if ":" in title:
+        issues.append("Tiêu đề CÓ dấu hai chấm ':' — bỏ đi (dùng ' - ' nếu cần).")
     if meta and len(meta) > 160:
         issues.append(f"Meta {len(meta)} ký tự > 160 — rút ngắn (~150).")
-    if (html.count("<img") + html.count("data:image")) // 2 < min_images and \
-            html.count("<img") < min_images:
+    if html.count("<img") < min_images:
         issues.append(f"Bài có < {min_images} ảnh — thêm ảnh.")
     if re.search(r"\bCTA\b", html):
         issues.append('Bài còn lộ chữ "CTA" — thay bằng lời kêu gọi tự nhiên.')
+    # CTA liên hệ cuối bài
+    if "lien-he" not in html and "liên hệ" not in html.lower():
+        issues.append("Thiếu CTA liên hệ ở cuối — thêm lời mời liên hệ.")
+    # heading/subheading phải IN ĐẬM
+    if re.search(r"<h[23](?![^>]*font-weight)", html):
+        issues.append("Có heading/subheading CHƯA in đậm (thêm style font-weight:700).")
+    # chú thích ảnh phải căn giữa
+    if "<figcaption" in html and re.search(r"<figcaption(?![^>]*text-align)", html):
+        issues.append("Chú thích ảnh CHƯA căn giữa (figcaption cần text-align:center).")
     return issues
