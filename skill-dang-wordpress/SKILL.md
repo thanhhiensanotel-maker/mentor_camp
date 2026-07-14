@@ -31,9 +31,17 @@ Tự viết nội dung → đổ vào bảng Lark chờ duyệt → đăng lên 
   - Bảng DANH SÁCH WEB: `tbllbBoFFJzjTsYo` (Tên web · Loại · URL · Tài khoản · App Password).
 - `app/lark.py` tự chọn: có `LARK_APP_SECRET` → Lark Open API (mây); không → lark-cli (máy).
 
+## ⚠️ TIÊU CHUẨN NỘI DUNG — BẮT BUỘC theo skill [[viet-blog]]
+Mọi bài viết đăng qua skill này PHẢI đạt quy trình SIPOC trong **[[viet-blog]]**:
+>1500 từ · bố cục liệt kê + heading đánh số (1, 2, 1.1) · tiêu đề chứa key chính ~4 từ ·
+meta ~150 ký tự · mật độ key chính 1-3% & đuôi dài 0.5-1.5% (mỗi loại ≥1 lần) ·
+backlink FB/TikTok/YouTube/Website · ≥4-5 ảnh có caption + alt + logo · font Times New Roman
+(bọc `<div style="font-family:'Times New Roman',Times,serif;">`) · danh mục "Chia sẻ" (id 256) ·
+CTA cuối bài · XANH cả 2 Yoast (SEO + Khả năng đọc). → Đọc [[viet-blog]] trước khi soạn `article`.
+
 ## Cách vận hành (miễn phí — Claude Code tự viết, KHÔNG dùng API trả tiền)
 
-1. **Viết bài:** soạn 1 dict `article` theo schema dưới (tự viết nội dung chuẩn SEO/GEO, đừng gọi Anthropic API).
+1. **Viết bài:** soạn 1 dict `article` ĐÚNG chuẩn [[viet-blog]] (tự viết, đừng gọi Anthropic API).
 2. **Đổ vào Lark chờ duyệt:** chạy trong `wordpress-studio` (đã có `.venv`):
    ```python
    from app import lark
