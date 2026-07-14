@@ -92,9 +92,9 @@ def _api_field(val):
     return str(val)
 
 
-def _base_path(suffix=""):
+def _base_path(suffix="", table_id=None):
     return (f"/open-apis/bitable/v1/apps/{config.LARK_BASE_TOKEN}"
-            f"/tables/{config.LARK_TABLE_ID}/records{suffix}")
+            f"/tables/{table_id or config.LARK_TABLE_ID}/records{suffix}")
 
 
 def _api_push(fields):
@@ -122,6 +122,54 @@ def _api_pending():
 def _api_update(record_id, fields):
     _api("PUT", _base_path(f"/{record_id}"),
          data=json.dumps({"fields": fields}, ensure_ascii=False))
+
+
+# ======================================================================
+#  ĐỌC / GHI BẢNG BẤT KỲ (dùng cho sổ đăng ký website 18.1)
+# ======================================================================
+def read_table(table_id):
+    """Đọc toàn bộ record của 1 bảng bất kỳ → list {record_id, fields}.
+
+    Tự chọn Lark Open API (nếu có secret) hoặc lark-cli (local).
+    """
+    config.require("LARK_BASE_TOKEN")
+    if _use_api():
+        out, page = [], None
+        while True:
+            params = {"page_size": 100}
+            if page:
+                params["page_token"] = page
+            data = _api("GET", _base_path(table_id=table_id), params=params)
+            for rec in data.get("items", []):
+                out.append({"record_id": rec.get("record_id"),
+                            "fields": rec.get("fields", {})})
+            if not data.get("has_more"):
+                break
+            page = data.get("page_token")
+        return out
+    return _cli_records(_cli_run(
+        ["+record-list", "--base-token", config.LARK_BASE_TOKEN,
+         "--table-id", table_id]))
+
+
+def add_row(table_id, fields):
+    """Thêm 1 dòng vào bảng bất kỳ. Trả về record_id (hoặc None)."""
+    config.require("LARK_BASE_TOKEN")
+    if _use_api():
+        data = _api("POST", _base_path(table_id=table_id),
+                    data=json.dumps({"fields": fields}, ensure_ascii=False))
+        return (data.get("record") or {}).get("record_id")
+    names = list(fields.keys())
+    row = [fields[n] for n in names]
+    payload = json.dumps({"fields": names, "rows": [row]}, ensure_ascii=False)
+    data = _cli_run(["+record-batch-create", "--base-token", config.LARK_BASE_TOKEN,
+                     "--table-id", table_id, "--json", payload])
+    d = data.get("data") or {}
+    recs = d.get("records") or d.get("record_id_list") or []
+    if recs:
+        first = recs[0]
+        return first.get("record_id") if isinstance(first, dict) else first
+    return None
 
 
 # ======================================================================

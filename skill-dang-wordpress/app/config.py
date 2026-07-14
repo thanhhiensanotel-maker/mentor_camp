@@ -32,6 +32,15 @@ BRAND_INTERNAL_LINK = os.getenv("BRAND_INTERNAL_LINK", "").strip()
 LARK_BASE_TOKEN = os.getenv("LARK_BASE_TOKEN", "").strip()
 # Bảng NỘI DUNG bài blog (nơi Claude đổ bài vào, và queue đọc để đăng).
 LARK_TABLE_ID = os.getenv("LARK_TABLE_ID", "").strip()
+# Bảng SỔ ĐĂNG KÝ WEBSITE (18.1): mỗi dòng = 1 web (Tên/ID/Tài khoản/URL).
+LARK_SITE_TABLE_ID = os.getenv("LARK_SITE_TABLE_ID", "tbllbBoFFJzjTsYo").strip()
+# Tên cột trong bảng 18.1.
+LARK_SITE_COL_NAME = os.getenv("LARK_SITE_COL_NAME", "Tên web").strip()
+LARK_SITE_COL_TYPE = os.getenv("LARK_SITE_COL_TYPE", "Loại").strip()
+LARK_SITE_COL_CODE = os.getenv("LARK_SITE_COL_CODE", "ID").strip()
+LARK_SITE_COL_APPPW = os.getenv("LARK_SITE_COL_APPPW", "App Password").strip()
+LARK_SITE_COL_USER = os.getenv("LARK_SITE_COL_USER", "Tài khoản").strip()
+LARK_SITE_COL_URL = os.getenv("LARK_SITE_COL_URL", "URL").strip()
 
 # Lark Open API (để chạy trên mây/GitHub Actions — không cần lark-cli).
 # Nếu có LARK_APP_SECRET → dùng API trực tiếp; nếu không → fallback lark-cli (máy local).

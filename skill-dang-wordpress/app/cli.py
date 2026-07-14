@@ -7,13 +7,28 @@ Ví dụ:
     python -m app.cli queue -y            # đọc bài "Chờ đăng" từ Lark → viết & đăng
 """
 import argparse
-from . import config, wordpress, claude_client, lark
+from . import config, wordpress, claude_client, lark, sites
 
 
 def _confirm(question, auto_yes):
     if auto_yes:
         return True
     return input(question).strip().lower().startswith("y")
+
+
+def _select_site(args):
+    """Chọn website theo --site (mã/tên/URL). Không có → site mặc định .env."""
+    ref = getattr(args, "site", None)
+    site = sites.get(ref) if ref else sites.from_env()
+    wordpress.use_site(site)
+    if not site.configured:
+        raise SystemExit(
+            f"❌ Website '{site.name or site.code}' chưa đủ cấu hình để đăng.\n"
+            f"   URL={site.url or '(trống)'}  Tài khoản={site.username or '(trống)'}  "
+            f"App Password={'có' if site.app_password else 'THIẾU'}\n"
+            f"   Điền WP_APP_PASSWORD_{site.code.upper()} vào .env "
+            f"(và Tài khoản trong bảng 18.1) rồi thử lại.")
+    return site
 
 
 def _preview(a):
@@ -30,12 +45,36 @@ def _preview(a):
 
 
 def cmd_test(args):
-    config.require("WP_SITE_URL", "WP_USERNAME", "WP_APP_PASSWORD")
+    site = _select_site(args)
     wordpress.verify_auth()
     info = wordpress.site_info()
     print(f"✅ Kết nối WordPress OK: '{info.get('name')}' "
-          f"— {info.get('description') or ''} ({config.WP_SITE_URL})")
-    print(f"   Đăng nhập bằng '{config.WP_USERNAME}' hợp lệ, đăng bài được.")
+          f"— {info.get('description') or ''} ({site.url})")
+    print(f"   Đăng nhập bằng '{site.username}' hợp lệ, đăng bài được.")
+
+
+def cmd_sites(args):
+    """Liệt kê website trong bảng 18.1 + (tuỳ chọn) test kết nối từng cái."""
+    rows = sites.load()
+    if not rows:
+        print("Bảng 18.1 chưa có website nào.")
+        return
+    print(f"Có {len(rows)} website trong sổ đăng ký (bảng 18.1):\n")
+    for s in rows:
+        pw = "✅ có App Password" if s.app_password else "⚠️ THIẾU App Password"
+        print(f"  • [{s.code or '?':5}] {s.name:22} {s.url or '(chưa có URL)'}")
+        print(f"          tài khoản: {s.username or '(trống)':16} | {pw}")
+        if args.test and s.configured:
+            try:
+                wordpress.use_site(s)
+                wordpress.verify_auth()
+                info = wordpress.site_info()
+                print(f"          🔌 kết nối OK — '{info.get('name')}'")
+            except Exception as e:  # noqa: BLE001
+                print(f"          ❌ lỗi kết nối: {e}")
+        elif args.test:
+            print("          ⏭️  bỏ qua test (chưa đủ cấu hình)")
+        print()
 
 
 def cmd_draft(args):
@@ -46,10 +85,11 @@ def cmd_draft(args):
 
 
 def cmd_post(args):
-    config.require("WP_SITE_URL", "WP_USERNAME", "WP_APP_PASSWORD", "ANTHROPIC_API_KEY")
+    config.require("ANTHROPIC_API_KEY")
+    site = _select_site(args)
     a = claude_client.write_article(args.topic, args.keyword or "")
     _preview(a)
-    status = args.status or config.WP_DEFAULT_STATUS
+    status = args.status or site.status or config.WP_DEFAULT_STATUS
     if _confirm(f"Đăng lên WordPress (status={status})? (y/N) ", args.yes):
         res = wordpress.publish(a, status=status)
         print(f"✅ Đã đăng. Link: {res.get('link')}  (id {res.get('id')})")
@@ -100,7 +140,12 @@ def main():
     sub = ap.add_subparsers(required=True)
 
     p = sub.add_parser("test", help="Kiểm tra kết nối WordPress")
+    p.add_argument("--site", help="Mã/tên/URL web trong bảng 18.1 (mặc định: .env)")
     p.set_defaults(func=cmd_test)
+
+    p = sub.add_parser("sites", help="Liệt kê website trong bảng 18.1")
+    p.add_argument("--test", action="store_true", help="Test kết nối từng web")
+    p.set_defaults(func=cmd_sites)
 
     p = sub.add_parser("draft", help="Claude soạn bài (không đăng)")
     p.add_argument("topic", help="Chủ đề bài viết")
@@ -109,6 +154,7 @@ def main():
 
     p = sub.add_parser("post", help="Claude viết & đăng 1 bài")
     p.add_argument("topic", help="Chủ đề bài viết")
+    p.add_argument("--site", help="Mã/tên/URL web trong bảng 18.1 (mặc định: .env)")
     p.add_argument("--keyword", help="Từ khoá chính (tuỳ chọn)")
     p.add_argument("--status", choices=["publish", "draft", "future"],
                    help="Trạng thái đăng (mặc định lấy từ .env)")
