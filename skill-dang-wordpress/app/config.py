@@ -27,6 +27,12 @@ BRAND_TONE = os.getenv("BRAND_TONE", "chuyên nghiệp, đáng tin, dễ đọc"
 # URL trang chủ / link nội bộ hay chèn (giúp SEO). VD: https://site.com/lien-he
 BRAND_INTERNAL_LINK = os.getenv("BRAND_INTERNAL_LINK", "").strip()
 
+# --- Kênh mạng xã hội (backlink off-page — BẮT BUỘC đủ 4 kênh trong mỗi bài) ---
+BRAND_FB = os.getenv("BRAND_FB", "https://www.facebook.com/noithatchocon").strip()
+BRAND_TIKTOK = os.getenv("BRAND_TIKTOK", "https://www.tiktok.com/@noithatchoconsanotel").strip()
+BRAND_YOUTUBE = os.getenv("BRAND_YOUTUBE", "https://youtube.com/@noithatchocon").strip()
+BRAND_WEBSITE = os.getenv("BRAND_WEBSITE", "https://noithatchocon.com").strip()
+
 # --- Kết nối Lark Base (bảng nội dung bài blog) ---
 # Lấy từ URL bảng: https://...larksuite.com/base/<BASE_TOKEN>?table=<TABLE_ID>
 LARK_BASE_TOKEN = os.getenv("LARK_BASE_TOKEN", "").strip()
