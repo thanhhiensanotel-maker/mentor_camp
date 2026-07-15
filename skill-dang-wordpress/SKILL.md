@@ -82,6 +82,7 @@ body = (blog.answer_box("Trả lời trực tiếp 40-60 từ…")       # GEO/A
         + blog.heading("1", "Tiêu đề mục", 2) + "<p>…</p>"   # heading số + đậm
         + blog.heading("1.1", "Mục con", 3) + "<p>…</p>"
         + blog.cta("Cần tư vấn?", "https://noithatchocon.com/lien-he")   # không lộ chữ CTA
+        + blog.backlinks(config.BRAND_FB, config.BRAND_TIKTOK, config.BRAND_YOUTUBE, config.BRAND_WEBSITE)  # BẮT BUỘC đủ 4 kênh
         + blog.faq_block(faq, start_no=9))                   # FAQ + schema JSON-LD
 content = blog.times_new_roman(body)                         # font Times New Roman
 article = {"title": f"… {KW} …", "slug": "…-khong-dau",

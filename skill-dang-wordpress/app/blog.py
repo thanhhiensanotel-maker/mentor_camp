@@ -24,6 +24,26 @@ def cta(text, link, label="Liên hệ Nội Thất Cho Con"):
             f'để được tư vấn ngay.</p>')
 
 
+def backlinks(fb="", tiktok="", youtube="", website="", brand="Nội Thất Cho Con"):
+    """Khối 'Theo dõi' cuối bài — backlink FB · TikTok · YouTube · Website (off-page SEO).
+
+    Chỉ chèn kênh nào có URL. Nên đặt gần cuối bài (trước hoặc sau FAQ).
+    """
+    parts = []
+    if website:
+        parts.append(f'<a href="{website}">Website</a>')
+    if fb:
+        parts.append(f'<a href="{fb}">Facebook</a>')
+    if tiktok:
+        parts.append(f'<a href="{tiktok}">TikTok</a>')
+    if youtube:
+        parts.append(f'<a href="{youtube}">YouTube</a>')
+    if not parts:
+        return ""
+    return (f'<p><strong>Theo dõi {brand} tại:</strong> ' + " · ".join(parts)
+            + " để cập nhật mẫu mới và ưu đãi.</p>")
+
+
 def answer_box(text):
     """Đoạn TRẢ LỜI TRỰC TIẾP đầu bài (AEO + GEO — cho featured snippet & AI trích dẫn).
 
@@ -120,4 +140,11 @@ def check_quality(article, min_words=1500, dmin=1.0, dmax=3.0, min_images=4):
     # AEO/AIO: phải có đoạn trả lời trực tiếp hoặc tóm tắt nhanh đầu bài
     if "border-left" not in html and "Tóm tắt nhanh" not in html:
         issues.append("Thiếu đoạn TRẢ LỜI TRỰC TIẾP / TÓM TẮT NHANH đầu bài (AEO/AIO).")
+    # Backlink off-page: BẮT BUỘC đủ 4 kênh FB · TikTok · YouTube · Website
+    hl = html.lower()
+    missing = [name for name, dom in (("Facebook", "facebook.com"), ("TikTok", "tiktok.com"),
+                                      ("YouTube", "youtube"), ("Website", "noithatchocon.com"))
+               if dom not in hl]
+    if missing:
+        issues.append("Thiếu backlink: " + ", ".join(missing) + " (bài phải có đủ 4 kênh).")
     return issues
