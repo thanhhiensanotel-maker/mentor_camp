@@ -42,6 +42,9 @@ jobs:
           STATUS_DONE: "Đã đăng"
           STATUS_FAIL: "Lỗi"
           TRIGGER: "Chờ đăng"
+          # Mặc định TÔN TRỌNG "Lịch đăng" (dòng hẹn giờ tương lai -> chờ). Nút "Đăng ngay" gửi
+          # client_payload.force=true để đăng ngay bất kể lịch.
+          FORCE: ${{ github.event.client_payload.force }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event.client_payload.dry_run }}" = "true" ]; then
             node skill-dang-fb-nhanvien/post-fb-lark.mjs --dry-run

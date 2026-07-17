@@ -29,9 +29,13 @@ const F = {
   comment: env("F_COMMENT", "Comment ebook"),
   link: env("F_LINK", "Link video"),
   log: env("F_LOG", "Ghi chú lỗi"),
+  schedule: env("F_SCHEDULE", "Lịch đăng"),
 };
 const DONE = env("STATUS_DONE", "Đã đăng");
 const FAIL = env("STATUS_FAIL", "Lỗi");
+// Tôn trọng "Lịch đăng": dòng hẹn giờ TƯƠNG LAI thì bỏ qua (chờ tới giờ). FORCE=true để đăng ngay bất kể lịch.
+const RESPECT_SCHEDULE = env("RESPECT_SCHEDULE", "true") !== "false" && env("FORCE", "") !== "true";
+const schedMs = v => (typeof v === "number" ? v : (v && !isNaN(Number(v)) ? Number(v) : 0));
 
 for (const k of ["APP_ID", "APP_SECRET", "BASE", "TABLE"]) {
   if (!CFG[k]) { console.error("❌ Thiếu biến:", k); process.exit(1); }
@@ -188,6 +192,13 @@ async function maybeShrink(imgPath) {
     const commentText = plain(row.fields[F.comment]).trim();
     const pg = resolvePage(pageName);
     if (!caption && !att) { log(`  [BỎ QUA] ${recId}: trống`); continue; }
+    if (RESPECT_SCHEDULE) {
+      const sMs = schedMs(row.fields[F.schedule]);
+      if (sMs && sMs > Date.now()) {
+        log(`  [CHỜ GIỜ] ${recId}: hẹn ${new Date(sMs).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} — chưa tới giờ, bỏ qua`);
+        continue;
+      }
+    }
     if (!pg) {
       log(`  ✖ ${recId}: KHÔNG CÓ TOKEN cho trang "${pageName}" (kiểm tra pages.json)`);
       if (!DRY) await updateRow(tk, recId, { [F.status]: FAIL, [F.log]: `${now()} - Không tìm thấy token trang "${pageName}"` });
