@@ -41,7 +41,7 @@ jobs:
           STATUS_FAIL: "Lỗi"
           TRIGGER: "Chờ đăng"
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event.client_payload.dry_run }}" = "true" ]; then
             node skill-dang-fb-nhanvien/post-fb-lark.mjs --dry-run
           else
             node skill-dang-fb-nhanvien/post-fb-lark.mjs
