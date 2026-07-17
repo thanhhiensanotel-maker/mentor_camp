@@ -1,0 +1,38 @@
+# Đăng bài Facebook cho base "Nhan vien dang bai - AUTO TEST" — CÁCH 1: token FB nằm trong Secret,
+# KHÔNG lưu trong Lark Base. Engine đọc TÊN page trong dòng -> tra token trong pages.json (từ Secret).
+# Kích hoạt: nút Lark gửi repository_dispatch event "dang-fb-nhanvien" (hoặc chạy tay workflow_dispatch).
+# KHÔNG liên quan / KHÔNG đụng workflow "dang-reel" (base SANOTEL CRM cũ).
+name: dang-fb-nhanvien
+
+on:
+  repository_dispatch:
+    types: [dang-fb-nhanvien]
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Ghi kho token FB từ Secret (Cách 1)
+        run: printf '%s' "$FB_PAGES_JSON" > pages.json
+        env:
+          FB_PAGES_JSON: ${{ secrets.FB_PAGES_JSON }}
+      - name: Đăng bài Facebook (đọc base AUTO TEST, tra token theo tên page)
+        env:
+          LARK_APP_ID: cli_aadd39e646f8de18
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET_AT }}
+          LARK_APP_TOKEN: VQeGbpFEQa6S1OsVlJXjGBTUpGd
+          LARK_TABLE_ID: tbl2Hy3SYM2NfAkz
+          PAGES_FILE: pages.json
+          F_CAPTION: "Mô tả"
+          F_MEDIA: "Ảnh/ Video"
+          F_LINK: "Link video"
+          F_LOG: "Ghi chú lỗi"
+          STATUS_DONE: "Đã đăng"
+          STATUS_FAIL: "Lỗi"
+          TRIGGER: "Chờ đăng"
+        run: node skill-dang-fb-nhanvien/post-fb-lark.mjs

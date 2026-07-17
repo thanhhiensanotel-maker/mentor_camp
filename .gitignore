@@ -9,3 +9,4 @@ node_modules/
 output/
 __pycache__/
 *.pyc
+pages.json
