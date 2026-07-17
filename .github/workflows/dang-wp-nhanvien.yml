@@ -1,0 +1,46 @@
+# Đăng bài WordPress cho base "Nhan vien dang bai - AUTO TEST" (bảng 4).
+# Đơn site: noithatchocon.com (mật khẩu trong Secret WP_APP_PASSWORD). Mặc định DRAFT cho an toàn.
+# Kích hoạt: nút Lark gửi repository_dispatch event "dang-wp-nhanvien" (hoặc chạy tay workflow_dispatch).
+# KHÔNG đụng workflow "dang-wordpress" cũ (base SANOTEL CRM).
+name: dang-wp-nhanvien
+
+on:
+  repository_dispatch:
+    types: [dang-wp-nhanvien]
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cài thư viện
+        run: pip install -r skill-dang-wordpress/requirements.txt
+      - name: Đăng bài WordPress (base AUTO TEST -> noithatchocon.com)
+        working-directory: skill-dang-wordpress
+        env:
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET_AT }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          LARK_APP_ID: cli_aadd39e646f8de18
+          LARK_DOMAIN: https://open.larksuite.com
+          LARK_BASE_TOKEN: VQeGbpFEQa6S1OsVlJXjGBTUpGd
+          LARK_TABLE_ID: tblwJj44qoat06ot
+          WP_SITE_URL: https://noithatchocon.com
+          WP_USERNAME: noithatchocon
+          WP_DEFAULT_STATUS: draft
+          WP_SEO_PLUGIN: yoast
+          LARK_COL_TITLE: "Tiêu đề"
+          LARK_COL_CONTENT: "Nội dung"
+          LARK_COL_KEYWORD: "Từ khoá SEO"
+          LARK_COL_META: "Meta description"
+          LARK_COL_SLUG: "Slug"
+          LARK_COL_TYPE: "Loại"
+          LARK_COL_STATUS: "Trạng thái"
+          LARK_COL_SCHEDULE: "Lịch đăng bài"
+          LARK_COL_URL: "Link bài đăng"
+          LARK_STATUS_PENDING: "Chờ đăng"
+          LARK_STATUS_DONE: "Đã đăng"
+        run: python -m app.cli queue -y
