@@ -8,6 +8,11 @@ on:
   repository_dispatch:
     types: [dang-fb-nhanvien]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true = chỉ kiểm tra, KHÔNG đăng thật"
+        type: boolean
+        default: false
 
 jobs:
   run:
@@ -35,4 +40,9 @@ jobs:
           STATUS_DONE: "Đã đăng"
           STATUS_FAIL: "Lỗi"
           TRIGGER: "Chờ đăng"
-        run: node skill-dang-fb-nhanvien/post-fb-lark.mjs
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node skill-dang-fb-nhanvien/post-fb-lark.mjs --dry-run
+          else
+            node skill-dang-fb-nhanvien/post-fb-lark.mjs
+          fi
