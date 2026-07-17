@@ -155,6 +155,21 @@ async function updateRow(tk, recId, fields) {
 const isImage = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || "");
 const isVideo = (n) => /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(n || "");
 
+// FB /photos chặn ảnh nặng (~4MB) -> tự nén ảnh lớn xuống JPEG cho nhẹ. Cần gói "sharp".
+async function maybeShrink(imgPath) {
+  try {
+    if (fs.statSync(imgPath).size <= 3.8 * 1048576) return imgPath;
+    const sharp = (await import("sharp")).default;
+    const out = imgPath + ".fb.jpg";
+    await sharp(imgPath).rotate().resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toFile(out);
+    log(`     (đã nén ảnh ${(fs.statSync(imgPath).size / 1048576).toFixed(1)}MB -> ${(fs.statSync(out).size / 1048576).toFixed(1)}MB)`);
+    return out;
+  } catch (e) {
+    log(`     ! không nén được ảnh (${String(e.message || e).slice(0, 60)}) — đăng nguyên bản`);
+    return imgPath;
+  }
+}
+
 (async () => {
   const tk = await larkToken();
   const rows = await listRows(tk);
@@ -190,8 +205,9 @@ const isVideo = (n) => /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(n || "");
       } else if (att && att.file_token && isImage(att.name)) {
         const tmp = path.join(os.tmpdir(), `fbi_${Date.now()}_${att.name}`);
         await download(tk, att.file_token, tmp);
-        res = await postPhoto(pg.id, pg.token, tmp, caption);
-        try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+        const up = await maybeShrink(tmp);
+        res = await postPhoto(pg.id, pg.token, up, caption);
+        try { fs.unlinkSync(tmp); if (up !== tmp) fs.unlinkSync(up); } catch { /* ignore */ }
       } else {
         res = await postText(pg.id, pg.token, caption);
       }

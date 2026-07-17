@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Cài sharp (để nén ảnh lớn trước khi đăng)
+        run: npm install sharp --no-save
       - name: Ghi kho token FB từ Secret (Cách 1)
         run: printf '%s' "$FB_PAGES_JSON" > pages.json
         env:
