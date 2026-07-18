@@ -138,6 +138,26 @@ async function postPhoto(pageId, token, imgPath, caption) {
   return { objectId: id, permalink: id ? `https://www.facebook.com/${id}` : "" };
 }
 
+// Đăng NHIỀU ảnh vào 1 bài: upload từng ảnh (chưa xuất bản) -> tạo 1 feed post gắn hết.
+async function postPhotos(pageId, token, imgPaths, caption) {
+  if (imgPaths.length <= 1) return postPhoto(pageId, token, imgPaths[0], caption);
+  const ids = [];
+  for (const p of imgPaths) {
+    const fd = new FormData();
+    fd.append("published", "false");        // upload nhưng chưa đăng
+    fd.append("access_token", token);
+    fd.append("source", new Blob([fs.readFileSync(p)]), path.basename(p));
+    const j = await fbJson(`${CFG.GRAPH}/${pageId}/photos`, { method: "POST", body: fd });
+    if (j.id) ids.push(j.id);
+  }
+  const params = new URLSearchParams();
+  params.append("message", caption || "");
+  params.append("access_token", token);
+  ids.forEach((id, i) => params.append(`attached_media[${i}]`, JSON.stringify({ media_fbid: id })));
+  const post = await fbJson(`${CFG.GRAPH}/${pageId}/feed`, { method: "POST", body: params });
+  return { objectId: post.id, permalink: post.id ? `https://www.facebook.com/${post.id}` : "" };
+}
+
 async function postText(pageId, token, caption) {
   const j = await fbJson(`${CFG.GRAPH}/${pageId}/feed`, { method: "POST", body: new URLSearchParams({ message: caption || "", access_token: token }) });
   return { objectId: j.id, permalink: j.id ? `https://www.facebook.com/${j.id}` : "" };
@@ -188,10 +208,12 @@ async function maybeShrink(imgPath) {
     const pageName = firstSel(row.fields[F.page]);
     const caption = plain(row.fields[F.caption]).trim();
     const media = row.fields[F.media];
-    const att = Array.isArray(media) ? media[0] : null;
+    const atts = Array.isArray(media) ? media.filter(a => a && a.file_token) : (media && media.file_token ? [media] : []);
+    const videoAtt = atts.find(a => isVideo(a.name));
+    const imageAtts = atts.filter(a => isImage(a.name));
     const commentText = plain(row.fields[F.comment]).trim();
     const pg = resolvePage(pageName);
-    if (!caption && !att) { log(`  [BỎ QUA] ${recId}: trống`); continue; }
+    if (!caption && atts.length === 0) { log(`  [BỎ QUA] ${recId}: trống`); continue; }
     if (RESPECT_SCHEDULE) {
       const sMs = schedMs(row.fields[F.schedule]);
       if (sMs && sMs > Date.now()) {
@@ -204,21 +226,29 @@ async function maybeShrink(imgPath) {
       if (!DRY) await updateRow(tk, recId, { [F.status]: FAIL, [F.log]: `${now()} - Không tìm thấy token trang "${pageName}"` });
       err++; continue;
     }
-    log(`  >> ${recId} → [${pageName}] ${att ? (att.name || "file") : "(text)"} | ${caption.slice(0, 32).replace(/\n/g, " ")}`);
-    if (DRY) { log(`     [DRY] sẽ đăng lên ${pg.name || pageName} (id ${pg.id}).`); continue; }
+    const mediaDesc = videoAtt ? videoAtt.name : (imageAtts.length ? `${imageAtts.length} ảnh` : "(text)");
+    log(`  >> ${recId} → [${pageName}] ${mediaDesc} | ${caption.slice(0, 32).replace(/\n/g, " ")}`);
+    if (DRY) { log(`     [DRY] sẽ đăng lên ${pg.name || pageName} (id ${pg.id}) — ${mediaDesc}.`); continue; }
     try {
       let res;
-      if (att && att.file_token && isVideo(att.name)) {
-        const tmp = path.join(os.tmpdir(), `fbv_${Date.now()}_${att.name}`);
-        await download(tk, att.file_token, tmp);
+      if (videoAtt) {
+        const tmp = path.join(os.tmpdir(), `fbv_${Date.now()}_${videoAtt.name}`);
+        await download(tk, videoAtt.file_token, tmp);
         res = await postReel(pg.id, pg.token, tmp, caption);
         try { fs.unlinkSync(tmp); } catch { /* ignore */ }
-      } else if (att && att.file_token && isImage(att.name)) {
-        const tmp = path.join(os.tmpdir(), `fbi_${Date.now()}_${att.name}`);
-        await download(tk, att.file_token, tmp);
-        const up = await maybeShrink(tmp);
-        res = await postPhoto(pg.id, pg.token, up, caption);
-        try { fs.unlinkSync(tmp); if (up !== tmp) fs.unlinkSync(up); } catch { /* ignore */ }
+      } else if (imageAtts.length) {
+        const paths = [], cleanup = [];
+        for (let i = 0; i < imageAtts.length; i++) {
+          const a = imageAtts[i];
+          const tmp = path.join(os.tmpdir(), `fbi_${Date.now()}_${i}_${a.name}`);
+          await download(tk, a.file_token, tmp);
+          cleanup.push(tmp);
+          const up = await maybeShrink(tmp);
+          if (up !== tmp) cleanup.push(up);
+          paths.push(up);
+        }
+        res = await postPhotos(pg.id, pg.token, paths, caption);
+        for (const p of cleanup) { try { fs.unlinkSync(p); } catch { /* ignore */ } }
       } else {
         res = await postText(pg.id, pg.token, caption);
       }
