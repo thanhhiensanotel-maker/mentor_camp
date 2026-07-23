@@ -21,15 +21,17 @@ const CFG = {
   FB_PAGE_TOKEN: env("FB_PAGE_TOKEN"),
 };
 const DRY = process.argv.includes("--dry-run");
+// Mỗi field ghi NHIỀU tên khả dĩ (cách nhau dấu phẩy) — engine tự dò tên nào có thật trong bảng.
+// Chống việc người dùng đổi tên cột làm hỏng.
 const F = {
-  page: env("F_PAGE", "Page"),
-  status: env("F_STATUS", "Trạng thái"),
-  media: env("F_MEDIA", "Ảnh/video,Ảnh/ Video,Ảnh/ video,Ảnh/Video"),
-  caption: env("F_CAPTION", "Mô tả"),
-  comment: env("F_COMMENT", "Comment ebook"),
-  link: env("F_LINK", "Link video"),
-  log: env("F_LOG", "Ghi chú lỗi"),
-  schedule: env("F_SCHEDULE", "Lịch đăng"),
+  page: env("F_PAGE", "Page,Trang,Fanpage"),
+  status: env("F_STATUS", "Trạng thái,Trang thai,Status"),
+  media: env("F_MEDIA", "Ảnh/video,Ảnh/ Video,Ảnh/ video,Ảnh/Video,Ảnh,Video,Media"),
+  caption: env("F_CAPTION", "Nội dung,Mô tả,Nội dung bài,Caption"),
+  comment: env("F_COMMENT", "Comment ebook,Comment,Bình luận,Comment đầu"),
+  link: env("F_LINK", "Link bài đăng,Link video,Link,Link bài"),
+  log: env("F_LOG", "Log,Ghi chú lỗi,Ghi chú,Log đăng"),
+  schedule: env("F_SCHEDULE", "Lịch đăng bài,Lịch đăng,Lịch"),
 };
 const DONE = env("STATUS_DONE", "Đã đăng");
 const FAIL = env("STATUS_FAIL", "Lỗi");
@@ -176,6 +178,14 @@ async function updateRow(tk, recId, fields) {
   return j.code;
 }
 
+// Lấy tập tên field thật của bảng (để tự dò, chống đổi tên cột)
+async function tableFields(tk) {
+  const r = await fetch(`${CFG.DOMAIN}/open-apis/bitable/v1/apps/${CFG.BASE}/tables/${CFG.TABLE}/fields?page_size=200`,
+    { headers: { Authorization: "Bearer " + tk } });
+  const j = await r.json();
+  return new Set(((j.data && j.data.items) || []).map(f => f.field_name));
+}
+
 const isImage = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || "");
 const isVideo = (n) => /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(n || "");
 
@@ -196,27 +206,34 @@ async function maybeShrink(imgPath) {
 
 (async () => {
   const tk = await larkToken();
+  // Tự dò tên field THẬT trong bảng (chống việc đổi tên cột làm hỏng)
+  const fieldSet = await tableFields(tk);
+  const RF = {};
+  for (const [k, csv] of Object.entries(F)) {
+    const cands = csv.split(",").map(s => s.trim()).filter(Boolean);
+    RF[k] = cands.find(c => fieldSet.has(c)) || cands[0];
+  }
+  log(`Field thật: nội dung="${RF.caption}" · media="${RF.media}" · lịch="${RF.schedule}" · trạng thái="${RF.status}" · link="${RF.link}" · log="${RF.log}"`);
   const rows = await listRows(tk);
   const onlyIds = (process.env.RECORD_ID || "").split(",").map(s => s.trim()).filter(Boolean);
   const TRIGGER = env("TRIGGER", "Chờ đăng");   // trạng thái được coi là "cần đăng" (ngoài ô trống)
   const canPost = st => !st || st === TRIGGER;
-  const targets = rows.filter(r => (onlyIds.length === 0 || onlyIds.includes(r.record_id)) && canPost(firstSel(r.fields[F.status])));
+  const targets = rows.filter(r => (onlyIds.length === 0 || onlyIds.includes(r.record_id)) && canPost(firstSel(r.fields[RF.status])));
   log(`Tổng ${rows.length} dòng, ${targets.length} dòng chưa đăng. (Kho token: ${PAGES.size} trang)`);
   let ok = 0, err = 0;
   for (const row of targets) {
     const recId = row.record_id;
-    const pageName = firstSel(row.fields[F.page]);
-    const caption = plain(row.fields[F.caption]).trim();
-    const mediaKeys = F.media.split(",").map(s => s.trim()).filter(Boolean);
-    const media = mediaKeys.map(k => row.fields[k]).find(v => v != null);
+    const pageName = firstSel(row.fields[RF.page]);
+    const caption = plain(row.fields[RF.caption]).trim();
+    const media = row.fields[RF.media];
     const atts = Array.isArray(media) ? media.filter(a => a && a.file_token) : (media && media.file_token ? [media] : []);
     const videoAtt = atts.find(a => isVideo(a.name));
     const imageAtts = atts.filter(a => isImage(a.name));
-    const commentText = plain(row.fields[F.comment]).trim();
+    const commentText = plain(row.fields[RF.comment]).trim();
     const pg = resolvePage(pageName);
     if (!caption && atts.length === 0) { log(`  [BỎ QUA] ${recId}: trống`); continue; }
     if (RESPECT_SCHEDULE) {
-      const sMs = schedMs(row.fields[F.schedule]);
+      const sMs = schedMs(row.fields[RF.schedule]);
       if (sMs && sMs > Date.now()) {
         log(`  [CHỜ GIỜ] ${recId}: hẹn ${new Date(sMs).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} — chưa tới giờ, bỏ qua`);
         continue;
@@ -224,7 +241,7 @@ async function maybeShrink(imgPath) {
     }
     if (!pg) {
       log(`  ✖ ${recId}: KHÔNG CÓ TOKEN cho trang "${pageName}" (kiểm tra pages.json)`);
-      if (!DRY) await updateRow(tk, recId, { [F.status]: FAIL, [F.log]: `${now()} - Không tìm thấy token trang "${pageName}"` });
+      if (!DRY) await updateRow(tk, recId, { [RF.status]: FAIL, [RF.log]: `${now()} - Không tìm thấy token trang "${pageName}"` });
       err++; continue;
     }
     const mediaDesc = videoAtt ? videoAtt.name : (imageAtts.length ? `${imageAtts.length} ảnh` : "(text)");
@@ -259,12 +276,12 @@ async function maybeShrink(imgPath) {
         catch { cmtNote = " (cmt lỗi)"; }
       }
       const linkVal = res.permalink ? { link: res.permalink, text: res.permalink } : "";
-      const code = await updateRow(tk, recId, { [F.status]: DONE, [F.link]: linkVal, [F.log]: `${now()} - OK [${pageName}] - ${res.objectId}${cmtNote}` });
+      const code = await updateRow(tk, recId, { [RF.status]: DONE, [RF.link]: linkVal, [RF.log]: `${now()} - OK [${pageName}] - ${res.objectId}${cmtNote}` });
       log(`     ✔ ĐÃ ĐĂNG (${pageName}): ${res.permalink || "(đang xử lý)"}${code !== 0 ? " ! ghi bảng lỗi code " + code : ""}`); ok++;
     } catch (e) {
       const msg = String(e.message || e).slice(0, 300);
       log(`     ✖ LỖI (${pageName}): ${msg}`);
-      try { await updateRow(tk, recId, { [F.status]: FAIL, [F.log]: `${now()} - ${msg}` }); } catch { /* ignore */ }
+      try { await updateRow(tk, recId, { [RF.status]: FAIL, [RF.log]: `${now()} - ${msg}` }); } catch { /* ignore */ }
       err++;
     }
   }
