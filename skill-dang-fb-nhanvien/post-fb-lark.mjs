@@ -24,7 +24,7 @@ const DRY = process.argv.includes("--dry-run");
 const F = {
   page: env("F_PAGE", "Page"),
   status: env("F_STATUS", "Trạng thái"),
-  media: env("F_MEDIA", "Ảnh/ Video"),
+  media: env("F_MEDIA", "Ảnh/video,Ảnh/ Video,Ảnh/ video,Ảnh/Video"),
   caption: env("F_CAPTION", "Mô tả"),
   comment: env("F_COMMENT", "Comment ebook"),
   link: env("F_LINK", "Link video"),
@@ -207,7 +207,8 @@ async function maybeShrink(imgPath) {
     const recId = row.record_id;
     const pageName = firstSel(row.fields[F.page]);
     const caption = plain(row.fields[F.caption]).trim();
-    const media = row.fields[F.media];
+    const mediaKeys = F.media.split(",").map(s => s.trim()).filter(Boolean);
+    const media = mediaKeys.map(k => row.fields[k]).find(v => v != null);
     const atts = Array.isArray(media) ? media.filter(a => a && a.file_token) : (media && media.file_token ? [media] : []);
     const videoAtt = atts.find(a => isVideo(a.name));
     const imageAtts = atts.filter(a => isImage(a.name));
