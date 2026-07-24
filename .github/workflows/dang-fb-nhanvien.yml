@@ -35,6 +35,8 @@ jobs:
           LARK_APP_TOKEN: VQeGbpFEQa6S1OsVlJXjGBTUpGd
           LARK_TABLE_ID: tbl2Hy3SYM2NfAkz
           PAGES_FILE: pages.json
+          # Bí danh tên Page -> trang FB thật (tên hiển thị khác tên page thật).
+          PAGE_ALIASES: '{"phongtrocaocap.vn":"Sleepbox Cao Cấp HCM","phongtrocaocap.com":"Sleepbox Cao Cấp HCM","Thanh Hiên Sleepbox":"Sleepbox Cao Cấp HCM"}'
           # KHÔNG set cứng tên field ở đây — engine tự dò tên field thật trong bảng (chống đổi tên cột).
           STATUS_DONE: "Đã đăng"
           STATUS_FAIL: "Lỗi"

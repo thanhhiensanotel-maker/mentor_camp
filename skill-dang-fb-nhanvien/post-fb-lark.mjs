@@ -50,9 +50,15 @@ if (CFG.PAGES_FILE && fs.existsSync(CFG.PAGES_FILE)) {
   const d = JSON.parse(fs.readFileSync(CFG.PAGES_FILE, "utf8"));
   for (const p of (d.data || d)) PAGES.set(norm(p.name), { id: p.id, token: p.access_token, name: p.name });
 }
+// Bí danh: tên trong cột Page -> tên trang FB thật. VD phongtrocaocap.com/.vn/"Thanh Hiên Sleepbox"
+// -> "Sleepbox Cao Cấp HCM". Nạp qua env PAGE_ALIASES (JSON {"bí danh":"tên trang thật"}).
+const ALIASES = (() => { try { return JSON.parse(env("PAGE_ALIASES", "{}")); } catch { return {}; } })();
+const aliasMap = new Map();
+for (const [a, real] of Object.entries(ALIASES)) aliasMap.set(norm(a), norm(real));
 function resolvePage(nameFromRow) {
   if (CFG.FB_PAGE_ID && CFG.FB_PAGE_TOKEN) return { id: CFG.FB_PAGE_ID, token: CFG.FB_PAGE_TOKEN, name: "(ép env)" };
-  return PAGES.get(norm(nameFromRow)) || null;
+  const key = aliasMap.get(norm(nameFromRow)) || norm(nameFromRow);
+  return PAGES.get(key) || null;
 }
 
 const now = () => new Date().toISOString().replace("T", " ").slice(0, 19);
