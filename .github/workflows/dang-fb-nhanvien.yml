@@ -49,6 +49,9 @@ jobs:
           STATUS_DONE: "Đã đăng"
           STATUS_FAIL: "Lỗi"
           TRIGGER: "Chờ đăng"
+          # "Chốt dòng" trước khi đăng: chuyển sang trạng thái này NGAY trước khi gọi FB. Nếu lần chạy
+          # chết giữa chừng thì dòng không còn "Chờ đăng" -> KHÔNG bị đăng lại. Để trống = tắt.
+          STATUS_CLAIM: "Đang đăng"
           # Mặc định TÔN TRỌNG "Lịch đăng" (dòng hẹn giờ tương lai -> chờ). Nút "Đăng ngay" gửi
           # client_payload.force=true để đăng ngay bất kể lịch.
           FORCE: ${{ github.event.client_payload.force }}

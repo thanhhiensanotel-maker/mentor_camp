@@ -35,6 +35,9 @@ const F = {
 };
 const DONE = env("STATUS_DONE", "Đã đăng");
 const FAIL = env("STATUS_FAIL", "Lỗi");
+// CHỐNG TRÙNG (lớp cuối): "chốt" dòng sang trạng thái "đang xử lý" NGAY TRƯỚC khi gọi FB, để nếu
+// lần chạy chết giữa chừng thì dòng không còn "Chờ đăng" -> lần sau KHÔNG đăng lại. Để trống = tắt.
+const CLAIM = env("STATUS_CLAIM", "Đang đăng");
 // Tôn trọng "Lịch đăng": dòng hẹn giờ TƯƠNG LAI thì bỏ qua (chờ tới giờ). FORCE=true để đăng ngay bất kể lịch.
 const RESPECT_SCHEDULE = env("RESPECT_SCHEDULE", "true") !== "false" && env("FORCE", "") !== "true";
 const schedMs = v => (typeof v === "number" ? v : (v && !isNaN(Number(v)) ? Number(v) : 0));
@@ -263,6 +266,12 @@ async function maybeShrink(imgPath) {
     const mediaDesc = videoAtt ? videoAtt.name : (imageAtts.length ? `${imageAtts.length} ảnh` : "(text)");
     log(`  >> ${recId} → [${pageName}] ${mediaDesc} | ${caption.slice(0, 32).replace(/\n/g, " ")}`);
     if (DRY) { log(`     [DRY] sẽ đăng lên ${pg.name || pageName} (id ${pg.id}) — ${mediaDesc}.`); continue; }
+    // CHỐT DÒNG trước khi đăng (chống trùng triệt để). Best-effort: nếu ghi claim lỗi thì VẪN đăng
+    // (dựa vào khóa tuần tự) để hệ thống không bao giờ bị kẹt không đăng được.
+    if (CLAIM) {
+      const cc = await updateRow(tk, recId, { [RF.status]: CLAIM, [RF.log]: `${now()} - đang xử lý...` });
+      if (cc !== 0) log(`     ! chốt dòng lỗi (code ${cc}) — vẫn đăng, dựa vào khóa tuần tự`);
+    }
     try {
       let res;
       if (videoAtt) {
