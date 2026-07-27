@@ -175,13 +175,23 @@ async function postComment(token, objectId, message) {
   return fbJson(`${CFG.GRAPH}/${objectId}/comments`, { method: "POST", body: new URLSearchParams({ message, access_token: token }) });
 }
 
+// Ghi bảng có RETRY: nếu đăng FB xong mà ghi "Đã đăng" bị lỗi mạng thì dòng vẫn là "Chờ đăng"
+// -> lần chạy sau đăng LẠI (trùng bài). Thử tối đa 3 lần để chắc chắn đánh dấu được.
 async function updateRow(tk, recId, fields) {
-  const r = await fetch(`${CFG.DOMAIN}/open-apis/bitable/v1/apps/${CFG.BASE}/tables/${CFG.TABLE}/records/${recId}`, {
-    method: "PUT", headers: { "Content-Type": "application/json; charset=utf-8", Authorization: "Bearer " + tk },
-    body: JSON.stringify({ fields }),
-  });
-  const j = await r.json().catch(() => ({ code: -1 }));
-  return j.code;
+  let last = -1;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const r = await fetch(`${CFG.DOMAIN}/open-apis/bitable/v1/apps/${CFG.BASE}/tables/${CFG.TABLE}/records/${recId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json; charset=utf-8", Authorization: "Bearer " + tk },
+        body: JSON.stringify({ fields }),
+      });
+      const j = await r.json().catch(() => ({ code: -1 }));
+      last = j.code;
+      if (last === 0) return 0;
+    } catch { last = -1; }
+    if (attempt < 3) await new Promise(res => setTimeout(res, 800 * attempt));
+  }
+  return last;
 }
 
 // Lấy tập tên field thật của bảng (để tự dò, chống đổi tên cột)

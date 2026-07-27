@@ -4,6 +4,11 @@
 # KHÔNG đụng workflow "dang-wordpress" cũ (base SANOTEL CRM).
 name: dang-wp-nhanvien
 
+# CHỐNG ĐĂNG TRÙNG: chỉ 1 lần chạy tại một thời điểm (xem giải thích ở dang-fb-nhanvien.yml).
+concurrency:
+  group: dang-wp-nhanvien
+  cancel-in-progress: false
+
 on:
   repository_dispatch:
     types: [dang-wp-nhanvien]

@@ -4,6 +4,14 @@
 # KHÔNG liên quan / KHÔNG đụng workflow "dang-reel" (base SANOTEL CRM cũ).
 name: dang-fb-nhanvien
 
+# CHỐNG ĐĂNG TRÙNG: chỉ cho 1 lần chạy tại một thời điểm. Lark có thể bắn nhiều lệnh cùng lúc
+# (mỗi dòng tới giờ = 1 lệnh) -> nếu chạy song song, các lần chạy cùng đọc "chưa đăng" và đăng lại
+# -> 1 bài ra nhiều bài. Khóa này bắt các lệnh trùng XẾP HÀNG; khi tới lượt thấy đã "Đã đăng" -> bỏ qua.
+# cancel-in-progress: false = KHÔNG hủy lần đang chạy giữa chừng (tránh đăng xong mà chưa kịp đánh dấu).
+concurrency:
+  group: dang-fb-nhanvien
+  cancel-in-progress: false
+
 on:
   repository_dispatch:
     types: [dang-fb-nhanvien]
@@ -44,6 +52,9 @@ jobs:
           # Mặc định TÔN TRỌNG "Lịch đăng" (dòng hẹn giờ tương lai -> chờ). Nút "Đăng ngay" gửi
           # client_payload.force=true để đăng ngay bất kể lịch.
           FORCE: ${{ github.event.client_payload.force }}
+          # Nếu lệnh có gắn record_id (dòng cụ thể) thì CHỈ đăng dòng đó -> chống trùng chính xác hơn.
+          # Bỏ trống = đăng tất cả dòng "Chờ đăng" (như cũ). Backward-compatible.
+          RECORD_ID: ${{ github.event.client_payload.record_id }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event.client_payload.dry_run }}" = "true" ]; then
             node skill-dang-fb-nhanvien/post-fb-lark.mjs --dry-run
