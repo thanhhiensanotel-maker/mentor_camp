@@ -139,6 +139,98 @@ async function postReel(pageId, token, videoPath, caption) {
   return { objectId: videoId, permalink };
 }
 
+// Đọc độ dài video ngay trong file MP4/MOV (box "mvhd") — không cần cài ffmpeg trên máy chạy.
+// Trả về số giây; 0 = không đọc được (khi đó giữ nguyên đường Reel như cũ).
+function videoDurationSec(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size;
+    const head = Buffer.alloc(16);
+    const findBox = (from, to, name) => {
+      let off = from;
+      while (off + 8 <= to) {
+        fs.readSync(fd, head, 0, 8, off);
+        let bsize = head.readUInt32BE(0);
+        const type = head.toString("latin1", 4, 8);
+        let hlen = 8;
+        if (bsize === 1) {                       // box lớn: kích thước 64-bit nằm ngay sau
+          fs.readSync(fd, head, 0, 8, off + 8);
+          bsize = Number(head.readBigUInt64BE(0));
+          hlen = 16;
+        } else if (bsize === 0) bsize = to - off; // box chạy tới hết file
+        if (bsize < hlen) break;
+        if (type === name) return { start: off + hlen, end: off + bsize };
+        off += bsize;
+      }
+      return null;
+    };
+    const moov = findBox(0, size, "moov");
+    if (!moov) return 0;
+    const mvhd = findBox(moov.start, moov.end, "mvhd");
+    if (!mvhd) return 0;
+    const b = Buffer.alloc(32);
+    fs.readSync(fd, b, 0, 32, mvhd.start);
+    let timescale, duration;
+    if (b[0] === 1) {                            // version 1: mốc thời gian 64-bit
+      timescale = b.readUInt32BE(20);
+      duration = Number(b.readBigUInt64BE(24));
+    } else {
+      timescale = b.readUInt32BE(12);
+      duration = b.readUInt32BE(16);
+    }
+    return timescale > 0 ? duration / timescale : 0;
+  } catch { return 0; }
+  finally { if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* ignore */ } } }
+}
+
+// Video DÀI (quá giới hạn Reel) -> đăng dạng video thường trên trang, qua /videos nhiều mảnh.
+// Upload từng mảnh theo offset FB trả về nên chịu được file vài trăm MB mà không nuốt hết RAM.
+async function postVideo(pageId, token, videoPath, caption) {
+  const size = fs.statSync(videoPath).size;
+  const start = await fbJson(`${CFG.GRAPH}/${pageId}/videos`, {
+    method: "POST",
+    body: new URLSearchParams({ upload_phase: "start", file_size: String(size), access_token: token }),
+  });
+  const sess = start.upload_session_id, videoId = start.video_id;
+  if (!sess || !videoId) throw new Error("start thiếu upload_session_id/video_id");
+  let off = Number(start.start_offset || 0), endOff = Number(start.end_offset || 0);
+  const fd = fs.openSync(videoPath, "r");
+  try {
+    while (endOff > off) {
+      const len = endOff - off;
+      const chunk = Buffer.alloc(len);
+      fs.readSync(fd, chunk, 0, len, off);
+      const form = new FormData();
+      form.append("upload_phase", "transfer");
+      form.append("upload_session_id", sess);
+      form.append("start_offset", String(off));
+      form.append("access_token", token);
+      form.append("video_file_chunk", new Blob([chunk]), path.basename(videoPath));
+      const t = await fbJson(`${CFG.GRAPH}/${pageId}/videos`, { method: "POST", body: form });
+      off = Number(t.start_offset); endOff = Number(t.end_offset);
+    }
+  } finally { try { fs.closeSync(fd); } catch { /* ignore */ } }
+  await fbJson(`${CFG.GRAPH}/${pageId}/videos`, {
+    method: "POST",
+    body: new URLSearchParams({
+      upload_phase: "finish", upload_session_id: sess,
+      description: caption || "", access_token: token,
+    }),
+  });
+  let permalink = "";
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const st = await fbJson(`${CFG.GRAPH}/${videoId}?fields=status,permalink_url&access_token=${encodeURIComponent(token)}`, { method: "GET" });
+      permalink = st.permalink_url || permalink;
+      const ph = st.status && (st.status.video_status || (st.status.processing_phase && st.status.processing_phase.status));
+      if (ph === "ready" || ph === "PUBLISHED") break;
+    } catch { /* poll tiếp */ }
+  }
+  return { objectId: videoId, permalink };
+}
+
 async function postPhoto(pageId, token, imgPath, caption) {
   const fd = new FormData();
   fd.append("caption", caption || "");
@@ -277,7 +369,15 @@ async function maybeShrink(imgPath) {
       if (videoAtt) {
         const tmp = path.join(os.tmpdir(), `fbv_${Date.now()}_${videoAtt.name}`);
         await download(tk, videoAtt.file_token, tmp);
-        res = await postReel(pg.id, pg.token, tmp, caption);
+        // Reel chỉ nhận clip ngắn. Video dài hơn thì đăng dạng video thường, không đẩy vào Reels.
+        const dur = videoDurationSec(tmp);
+        const reelMax = Number(env("REEL_MAX_SEC", "90"));
+        if (dur > reelMax) {
+          log(`     video dài ${Math.round(dur)}s (> ${reelMax}s) → đăng dạng video thường, không phải Reel`);
+          res = await postVideo(pg.id, pg.token, tmp, caption);
+        } else {
+          res = await postReel(pg.id, pg.token, tmp, caption);
+        }
         try { fs.unlinkSync(tmp); } catch { /* ignore */ }
       } else if (imageAtts.length) {
         const paths = [], cleanup = [];
