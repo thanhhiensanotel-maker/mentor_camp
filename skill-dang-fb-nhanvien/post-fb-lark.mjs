@@ -32,7 +32,12 @@ const F = {
   link: env("F_LINK", "Link bài đăng,Link video,Link,Link bài"),
   log: env("F_LOG", "Log,Ghi chú lỗi,Ghi chú,Log đăng"),
   schedule: env("F_SCHEDULE", "Lịch đăng bài,Lịch đăng,Lịch"),
+  // THÊM 2026-08-12: cột phân loại. Dòng nào ghi "Tin 24h" (hoặc Story) thì đăng TIN 24 GIỜ
+  // thay vì bài trên bảng tin. Bảng chưa có cột này / để trống -> chạy y như cũ.
+  type: env("F_TYPE", "Loại,Loai,Kiểu,Kieu,Định dạng"),
 };
+// Nhận diện dòng muốn đăng tin 24 giờ (khớp cả "Tin 24h", "tin 24 gio", "story").
+const laTin24h = v => /tin24|story/.test(String(v || "").normalize("NFC").toLowerCase().replace(/\s+/g, "").replace(/giờ|gio|h\b/g, ""));
 const DONE = env("STATUS_DONE", "Đã đăng");
 const FAIL = env("STATUS_FAIL", "Lỗi");
 // CHỐNG TRÙNG (lớp cuối): "chốt" dòng sang trạng thái "đang xử lý" NGAY TRƯỚC khi gọi FB, để nếu
@@ -266,6 +271,45 @@ async function postText(pageId, token, caption) {
   return { objectId: j.id, permalink: j.id ? `https://www.facebook.com/${j.id}` : "" };
 }
 
+// ---- TIN 24 GIỜ (story) — THÊM 2026-08-12, không đụng các hàm đăng bài ở trên ----
+// Facebook KHÔNG cho hẹn giờ tin 24h ở phía họ, nên lịch do engine giữ (cột "Lịch đăng bài"):
+// tới giờ mới bắn. Tin không mang caption — chữ nằm sẵn trong ảnh/video.
+async function postStoryVideo(pageId, token, videoPath) {
+  const size = fs.statSync(videoPath).size;
+  const start = await fbJson(`${CFG.GRAPH}/${pageId}/video_stories`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ upload_phase: "start", access_token: token }),
+  });
+  if (!start.video_id || !start.upload_url) throw new Error("story start thiếu video_id/upload_url");
+  const buf = fs.readFileSync(videoPath);
+  const up = await fetch(start.upload_url, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${token}`, offset: "0", file_size: String(buf.length), "Content-Type": "application/octet-stream" },
+    body: buf,
+  });
+  const upJson = await up.json().catch(() => ({}));
+  if (upJson.error) throw new Error("story upload: " + JSON.stringify(upJson.error).slice(0, 160));
+  const fin = await fbJson(`${CFG.GRAPH}/${pageId}/video_stories`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ upload_phase: "finish", video_id: start.video_id, access_token: token }),
+  });
+  const id = fin.post_id || fin.id || start.video_id;
+  return { objectId: id, permalink: "" };   // tin 24h không có link công khai bền
+}
+
+async function postStoryPhoto(pageId, token, imgPath) {
+  const fd = new FormData();
+  fd.append("published", "false");           // nạp ảnh trước, chưa xuất bản
+  fd.append("access_token", token);
+  fd.append("source", new Blob([fs.readFileSync(imgPath)]), path.basename(imgPath));
+  const up = await fbJson(`${CFG.GRAPH}/${pageId}/photos`, { method: "POST", body: fd });
+  if (!up.id) throw new Error("story ảnh: không lấy được photo_id");
+  const j = await fbJson(`${CFG.GRAPH}/${pageId}/photo_stories`, {
+    method: "POST", body: new URLSearchParams({ photo_id: up.id, access_token: token }),
+  });
+  return { objectId: j.post_id || j.id || up.id, permalink: "" };
+}
+
 async function postComment(token, objectId, message) {
   return fbJson(`${CFG.GRAPH}/${objectId}/comments`, { method: "POST", body: new URLSearchParams({ message, access_token: token }) });
 }
@@ -355,8 +399,9 @@ async function maybeShrink(imgPath) {
       if (!DRY) await updateRow(tk, recId, { [RF.status]: FAIL, [RF.log]: `${now()} - Không tìm thấy token trang "${pageName}"` });
       err++; continue;
     }
+    const tin24 = laTin24h(firstSel(row.fields[RF.type]));   // THÊM: dòng này là tin 24 giờ?
     const mediaDesc = videoAtt ? videoAtt.name : (imageAtts.length ? `${imageAtts.length} ảnh` : "(text)");
-    log(`  >> ${recId} → [${pageName}] ${mediaDesc} | ${caption.slice(0, 32).replace(/\n/g, " ")}`);
+    log(`  >> ${recId} → [${pageName}] ${tin24 ? "TIN 24H · " : ""}${mediaDesc} | ${caption.slice(0, 32).replace(/\n/g, " ")}`);
     if (DRY) { log(`     [DRY] sẽ đăng lên ${pg.name || pageName} (id ${pg.id}) — ${mediaDesc}.`); continue; }
     // CHỐT DÒNG trước khi đăng (chống trùng triệt để). Best-effort: nếu ghi claim lỗi thì VẪN đăng
     // (dựa vào khóa tuần tự) để hệ thống không bao giờ bị kẹt không đăng được.
@@ -366,7 +411,23 @@ async function maybeShrink(imgPath) {
     }
     try {
       let res;
-      if (videoAtt) {
+      // THÊM 2026-08-12: nhánh TIN 24 GIỜ. Chỉ chạy khi cột Loại ghi "Tin 24h"; mọi trường hợp
+      // khác rơi xuống đúng các nhánh cũ (Reel / video / ảnh / chữ) không đổi một dòng nào.
+      if (tin24) {
+        if (!videoAtt && !imageAtts.length) throw new Error("Tin 24h phải có ảnh hoặc video đính kèm");
+        const a = videoAtt || imageAtts[0];
+        const tmp = path.join(os.tmpdir(), `fbs_${Date.now()}_${a.name}`);
+        await download(tk, a.file_token, tmp);
+        let dung = tmp;
+        try {
+          if (videoAtt) res = await postStoryVideo(pg.id, pg.token, tmp);
+          else { dung = await maybeShrink(tmp); res = await postStoryPhoto(pg.id, pg.token, dung); }
+        } finally {
+          for (const f of new Set([tmp, dung])) { try { fs.unlinkSync(f); } catch { /* ignore */ } }
+        }
+        if (caption) log(`     (tin 24h không mang chữ — phần "Nội dung" chỉ để ghi chú)`);
+        if (imageAtts.length > 1 || (videoAtt && imageAtts.length)) log(`     (chỉ đăng 1 tệp đầu tiên; mỗi tin = 1 tệp)`);
+      } else if (videoAtt) {
         const tmp = path.join(os.tmpdir(), `fbv_${Date.now()}_${videoAtt.name}`);
         await download(tk, videoAtt.file_token, tmp);
         // Reel chỉ nhận clip ngắn. Video dài hơn thì đăng dạng video thường, không đẩy vào Reels.
@@ -396,7 +457,7 @@ async function maybeShrink(imgPath) {
         res = await postText(pg.id, pg.token, caption);
       }
       let cmtNote = "";
-      if (commentText && res.objectId) {
+      if (commentText && res.objectId && !tin24) {   // tin 24h không có phần bình luận
         try { await postComment(pg.token, res.objectId, commentText); cmtNote = " +cmt"; }
         catch { cmtNote = " (cmt lỗi)"; }
       }
