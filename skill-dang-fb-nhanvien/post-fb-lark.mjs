@@ -44,7 +44,9 @@ const FAIL = env("STATUS_FAIL", "Lỗi");
 // lần chạy chết giữa chừng thì dòng không còn "Chờ đăng" -> lần sau KHÔNG đăng lại. Để trống = tắt.
 const CLAIM = env("STATUS_CLAIM", "Đang đăng");
 // Tôn trọng "Lịch đăng": dòng hẹn giờ TƯƠNG LAI thì bỏ qua (chờ tới giờ). FORCE=true để đăng ngay bất kể lịch.
-const RESPECT_SCHEDULE = env("RESPECT_SCHEDULE", "true") !== "false" && env("FORCE", "") !== "true";
+// VÁ 21/10/2026 (sự cố đăng dồn 23 bài NTN): FORCE (nút "Đăng ngay") CHỈ được bỏ qua lịch
+// khi có RECORD_ID cụ thể. Không có RECORD_ID thì nút vẫn tôn trọng lịch -> dòng hẹn giờ tương lai KHÔNG bị đăng sớm.
+const RESPECT_SCHEDULE = env("RESPECT_SCHEDULE", "true") !== "false" && !(env("FORCE", "") === "true" && (process.env.RECORD_ID || "").trim());
 const schedMs = v => (typeof v === "number" ? v : (v && !isNaN(Number(v)) ? Number(v) : 0));
 
 for (const k of ["APP_ID", "APP_SECRET", "BASE", "TABLE"]) {
