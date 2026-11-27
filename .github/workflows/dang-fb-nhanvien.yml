@@ -33,9 +33,17 @@ jobs:
       - name: Cài sharp (để nén ảnh lớn trước khi đăng)
         run: npm install sharp --no-save
       - name: Ghi kho token FB từ Secret (Cách 1)
-        run: printf '%s' "$FB_PAGES_JSON" > pages.json
+        run: |
+          printf '%s' "$FB_PAGES_JSON" > pages.json
+          # Ngăn phụ: trang mới (vd Chương Home) nạp riêng, gộp vào — không đụng 23 trang cũ.
+          if [ -n "$FB_PAGES_EXTRA_JSON" ]; then
+            printf '%s' "$FB_PAGES_EXTRA_JSON" > pages-extra.json
+            node -e 'const fs=require("fs");const a=JSON.parse(fs.readFileSync("pages.json","utf8"));const b=JSON.parse(fs.readFileSync("pages-extra.json","utf8"));const A=a.data||a,B=b.data||b;for(const p of B){const i=A.findIndex(x=>x.id==p.id);if(i>=0)A[i]=p;else A.push(p)}fs.writeFileSync("pages.json",JSON.stringify(a.data?a:{data:A}));console.log("Gộp ngăn phụ:",B.length,"trang → kho",A.length)'
+            rm -f pages-extra.json
+          fi
         env:
           FB_PAGES_JSON: ${{ secrets.FB_PAGES_JSON }}
+          FB_PAGES_EXTRA_JSON: ${{ secrets.FB_PAGES_EXTRA_JSON }}
       - name: Đăng bài Facebook (đọc base AUTO TEST, tra token theo tên page)
         env:
           LARK_APP_ID: cli_aadd39e646f8de18
