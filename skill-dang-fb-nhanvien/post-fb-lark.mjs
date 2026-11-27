@@ -29,6 +29,7 @@ const F = {
   media: env("F_MEDIA", "Ảnh/video,Ảnh/ Video,Ảnh/ video,Ảnh/Video,Ảnh,Video,Media"),
   caption: env("F_CAPTION", "Nội dung,Mô tả,Nội dung bài,Caption"),
   comment: env("F_COMMENT", "Comment ebook,Comment,Bình luận,Comment đầu"),
+  thumb: env("F_THUMB", "Thumbnail,Ảnh bìa,Anh bia,Thumb"),   // THÊM 27/11/2026: ảnh bìa cho Reel/video
   link: env("F_LINK", "Link bài đăng,Link video,Link,Link bài"),
   log: env("F_LOG", "Log,Ghi chú lỗi,Ghi chú,Log đăng"),
   schedule: env("F_SCHEDULE", "Lịch đăng bài,Lịch đăng,Lịch"),
@@ -312,6 +313,23 @@ async function postStoryPhoto(pageId, token, imgPath) {
   return { objectId: j.post_id || j.id || up.id, permalink: "" };
 }
 
+// THÊM 27/11/2026: gắn ẢNH BÌA (cột Thumbnail) cho Reel/video sau khi đăng. Facebook cần video xử lý xong
+// mới nhận ảnh bìa nên thử lại vài lần. Lỗi ở bước này KHÔNG làm hỏng bài (bài đã lên), chỉ ghi chú vào Log.
+async function setThumbnail(token, videoId, imgPath) {
+  let last = "";
+  for (let i = 0; i < 6; i++) {
+    try {
+      const form = new FormData();
+      form.append("source", new Blob([fs.readFileSync(imgPath)]), path.basename(imgPath));
+      form.append("is_preferred", "true");
+      form.append("access_token", token);
+      await fbJson(`${CFG.GRAPH}/${videoId}/thumbnails`, { method: "POST", body: form });
+      return true;
+    } catch (e) { last = String(e.message || e); await new Promise(r => setTimeout(r, 15000)); }
+  }
+  throw new Error(last || "không gắn được ảnh bìa");
+}
+
 async function postComment(token, objectId, message) {
   return fbJson(`${CFG.GRAPH}/${objectId}/comments`, { method: "POST", body: new URLSearchParams({ message, access_token: token }) });
 }
@@ -459,6 +477,15 @@ async function maybeShrink(imgPath) {
         res = await postText(pg.id, pg.token, caption);
       }
       let cmtNote = "";
+      const thumbF = row.fields[RF.thumb];
+      const thumbAtt = (Array.isArray(thumbF) ? thumbF : (thumbF ? [thumbF] : [])).find(a => a && a.file_token && isImage(a.name));
+      if (thumbAtt && videoAtt && !tin24 && res.objectId) {
+        const tmp = path.join(os.tmpdir(), `fbt_${Date.now()}_${thumbAtt.name}`);
+        let dung = tmp;
+        try { await download(tk, thumbAtt.file_token, tmp); dung = await maybeShrink(tmp); await setThumbnail(pg.token, res.objectId, dung); cmtNote += " +bìa"; }
+        catch (e) { cmtNote += ` (bìa lỗi: ${String(e.message || e).slice(0, 80)})`; }
+        finally { for (const f of new Set([tmp, dung])) { try { fs.unlinkSync(f); } catch { /* ignore */ } } }
+      }
       if (commentText && res.objectId && !tin24) {   // tin 24h không có phần bình luận
         try { await postComment(pg.token, res.objectId, commentText); cmtNote = " +cmt"; }
         catch { cmtNote = " (cmt lỗi)"; }
